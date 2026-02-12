@@ -1,14 +1,22 @@
 import express from 'express';
 import config from './config/config.js';
-
+import { db } from './db/index.js';
+import { users } from './db/schema.js';
 const { port, nodeEnv } = config;
+
 
 const app = express();
 
 
 
-app.get("/", (req, res) => {
+app.get("/", async (req, res) => {
+    try{    
+            await db.insert(users).values({ email: "fa@gmail.com", name: 'fa' });
+    }catch(err){
+        console.error("Error inserting user:", err);    
+    }
     res.status(200).send("Hello from the EdTech API!");
+    
 });
 
 app.listen(port, () => {
