@@ -3,22 +3,17 @@ import config from './config/config.js';
 import { db } from './db/index.js';
 import { users } from './db/schema.js';
 import { chat, translateToFrench } from './services/cohere.js';
+import authRouter from './routes/auth.js';
 const { port, nodeEnv } = config;
 
 
 const app = express();
 
+app.use(express.json());
 
 
-app.get("/", async (req, res) => {
-    try{    
-            await db.insert(users).values({ email: "fa@gmail.com", name: 'fa' });
-    }catch(err){
-        console.error("Error inserting user:", err);    
-    }
-    res.status(200).send("Hello from the EdTech API!");
-    
-});
+app.use("/api/auth", authRouter);
+
 app.get("/translation", async (req, res) => {
     try {
         const text = req.query.text as string;
