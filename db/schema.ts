@@ -8,7 +8,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-const scopes = pgEnum("scopes", ["read", "translate", "write"]);
+export const scopes = pgEnum("scopes", ["read", "translate", "write"]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
