@@ -19,8 +19,9 @@ export const createApiKey = async (req: Request, res: Response) => {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
+    console.log(authHeader);
     const token = authHeader.substring(7);
+    console.log(token);
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET!) as {
       id: number;
     };
@@ -36,7 +37,8 @@ export const createApiKey = async (req: Request, res: Response) => {
     }
 
     const raw = randomBytes(32).toString("hex");
-    const key = `${"mety_live"}_${raw}`;
+    const public_key = randomBytes(8).toString("hex")
+    const key = `mety_live_${public_key}_${raw}`;
     const hash = createHash("sha256").update(key).digest("hex");
 
     const api_key = await db
@@ -45,6 +47,7 @@ export const createApiKey = async (req: Request, res: Response) => {
         users_id: userId,
         key: hash,
         label,
+        publicKey: public_key,
         scopes,
         createdAt: new Date(),
         updatedAt: new Date(),
