@@ -4,6 +4,7 @@ import { db } from './db/index.js';
 import { users } from './db/schema.js';
 import { chat, translateToFrench } from './services/cohere.js';
 import authRouter from './routes/auth.js';
+import apiKeysRouter from './routes/api_key.js';
 const { port, nodeEnv } = config;
 
 
@@ -13,6 +14,7 @@ app.use(express.json());
 
 
 app.use("/api/auth", authRouter);
+app.use("/api/keys", apiKeysRouter);
 
 app.get("/translation", async (req, res) => {
     try {

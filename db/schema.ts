@@ -27,7 +27,7 @@ export const api_keys = pgTable("api_keys", {
   // this will also be hashed
   key: varchar("key", { length: 255 }).notNull().unique(),
   label: varchar("label", { length: 255 }).notNull(),
-  scopes: scopes("scopes").notNull(),
+  scopes: scopes("scopes").notNull().array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
