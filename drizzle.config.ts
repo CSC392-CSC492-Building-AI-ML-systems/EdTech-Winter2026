@@ -3,7 +3,6 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env' });
 
-console.log(process.env.DATABASE_URL);
 
 export default defineConfig({
   schema: './db/schema.ts',

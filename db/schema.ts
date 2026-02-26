@@ -1,9 +1,9 @@
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import {
+  boolean,
   pgEnum,
   pgTable,
   serial,
-  text,
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -26,6 +26,7 @@ export const api_keys = pgTable("api_keys", {
     .references(() => users.id),
   // this will also be hashed
   key: varchar("key", { length: 255 }).notNull().unique(),
+  publicKey: varchar("public_key", { length: 16 }).notNull().unique(),
   label: varchar("label", { length: 255 }).notNull(),
   scopes: scopes("scopes").notNull().array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
