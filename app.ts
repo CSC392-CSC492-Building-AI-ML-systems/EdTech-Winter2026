@@ -18,20 +18,15 @@ app.use(express.json());
 
 app.use("/upload", uploadRouter);
 
-// Translation route (no API key required for demo)
 app.get("/translation", async (req, res) => {
     try {
         const text = req.query.text as string;
         
-        console.log("Received translation request for text:", text);
         if (!text) {
             return res.status(400).json({ error: "Text parameter is required" });
         }
         
         const translatedContent = await translateToFrench(text);
-        
-        console.log("Original (English):", text);
-        console.log("Translated (French):", translatedContent);
         
         res.status(200).json({
             originalLanguage: "English",
@@ -52,7 +47,6 @@ app.use("/api/auth", authRouter);
 app.use("/api/keys", apiKeysRouter);
 
 app.get("/test", (req, res) => {
-    console.log(req.apiKey);
     res.send("Test");
 })
 

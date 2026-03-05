@@ -11,15 +11,12 @@ export const uploadPdfFile = async (req: Request, res: Response) => {
         }
 
         const targetLanguage = (req.body.language as string) || "French";
-
-        console.log("Extracting text from PDF:", req.file.filename);
         const extractedText = await extractTextFromPdf(filePath);
 
         if (!extractedText.trim()) {
             return res.status(422).json({ error: "Could not extract text from PDF. The file may be image-based or empty." });
         }
 
-        console.log("Translating extracted text to:", targetLanguage);
         const translatedText = await translateContent(extractedText, targetLanguage);
 
         return res.status(200).json({
@@ -34,7 +31,6 @@ export const uploadPdfFile = async (req: Request, res: Response) => {
     } finally {
         if (filePath) {
             await deleteFile(filePath);
-            console.log("Deleted uploaded file:", filePath);
         }
     }
 };
@@ -59,7 +55,6 @@ export const uploadPdfFileStream = async (req: Request, res: Response) => {
         const targetLanguage = (req.body.language as string) || "French";
 
         sendEvent('status', { step: 'extracting' });
-        console.log("Extracting text from PDF:", req.file.filename);
         const extractedText = await extractTextFromPdf(filePath);
 
         if (!extractedText.trim()) {
@@ -74,7 +69,6 @@ export const uploadPdfFileStream = async (req: Request, res: Response) => {
         });
 
         sendEvent('status', { step: 'translating' });
-        console.log("Translating extracted text to:", targetLanguage);
 
         await translateContentStream(extractedText, targetLanguage, (token) => {
             sendEvent('token', { token });
@@ -89,7 +83,6 @@ export const uploadPdfFileStream = async (req: Request, res: Response) => {
     } finally {
         if (filePath) {
             await deleteFile(filePath);
-            console.log("Deleted uploaded file:", filePath);
         }
     }
 };
