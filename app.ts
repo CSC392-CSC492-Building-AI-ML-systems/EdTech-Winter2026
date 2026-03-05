@@ -6,6 +6,7 @@ import { users } from './db/schema.js';
 import { chat, translateToFrench } from './services/cohere.js';
 import authRouter from './routes/auth.js';
 import apiKeysRouter from './routes/api_key.js';
+import uploadRouter from './routes/upload.js';
 import { apiKeyMiddleware } from './middleware/api_key.js';
 const { port, nodeEnv } = config;
 
@@ -14,6 +15,8 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+app.use("/upload", uploadRouter);
 
 // Translation route (no API key required for demo)
 app.get("/translation", async (req, res) => {
@@ -44,7 +47,6 @@ app.get("/translation", async (req, res) => {
 
 // API key middleware applies to routes below
 app.use(apiKeyMiddleware);
-
 
 app.use("/api/auth", authRouter);
 app.use("/api/keys", apiKeysRouter);

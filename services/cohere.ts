@@ -144,5 +144,41 @@ ${content}`;
     : null;
 }
 
+/**
+ * Translate content with streaming
+ * @param content - The content to translate
+ * @param targetLanguage - The language to translate to
+ * @param onToken - Callback function called for each token
+ * @param model - The model to use (default: command-a-03-2025)
+ */
+export async function translateContentStream(
+  content: string,
+  targetLanguage: string,
+  onToken: (token: string) => void,
+  model: string = 'command-a-03-2025'
+) {
+  const prompt = `You are a professional translator. Translate the following content into ${targetLanguage}. Maintain the same structure, formatting, and tone. Provide ONLY the translated text without any explanations.
+
+CONTENT TO TRANSLATE:
+
+${content}`;
+
+  const stream = await cohere.chatStream({
+    model,
+    messages: [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+  });
+
+  for await (const event of stream) {
+    if (event.type === 'content-delta' && event.delta?.message?.content?.text) {
+      onToken(event.delta.message.content.text);
+    }
+  }
+}
+
 export { cohere, SELF_ASSESSMENT_CONTENT };
 export default cohere;
