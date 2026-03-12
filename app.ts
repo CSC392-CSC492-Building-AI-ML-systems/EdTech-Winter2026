@@ -6,6 +6,7 @@ import { users } from './db/schema.js';
 import { chat, translateToFrench } from './services/cohere.js';
 import authRouter from './routes/auth.js';
 import apiKeysRouter from './routes/api_key.js';
+import classroomsRouter from './routes/classrooms.js';
 import { apiKeyMiddleware } from './middleware/api_key.js';
 const { port, nodeEnv } = config;
 
@@ -48,6 +49,7 @@ app.use(apiKeyMiddleware);
 
 app.use("/api/auth", authRouter);
 app.use("/api/keys", apiKeysRouter);
+app.use("/api/classrooms", classroomsRouter);
 
 app.get("/test", (req, res) => {
     console.log(req.apiKey);
