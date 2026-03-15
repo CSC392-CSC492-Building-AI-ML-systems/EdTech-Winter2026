@@ -42,7 +42,6 @@ app.get("/translation", async (req, res) => {
     }
 });
 
-// API key middleware applies to routes below
 app.use(apiKeyMiddleware);
 
 app.use("/api/auth", authRouter);
@@ -55,7 +54,6 @@ app.get("/test", (req, res) => {
     res.send("Test");
 })
 
-// Sample Cohere API endpoint
 app.get("/cohere/:message", async (req, res) => {
     try {
         const message = ( await req.params.message as string) || "Hello, how are you?";
