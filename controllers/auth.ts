@@ -6,7 +6,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import type { AuthRegisterRequest, AuthLoginRequest, AuthResponse, MeResponse, ErrorResponse } from "../types/index.js";
 
-export const register = async (req: Request, res: Response): Promise<void> => {
+export const register = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body as AuthRegisterRequest;
     if (!email || !password) {
@@ -44,7 +44,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const login = async (req: Request, res: Response): Promise<void> => {
+export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body as AuthLoginRequest;
     if (!email || !password) {
@@ -77,7 +77,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const me = async (req: Request, res: Response): Promise<void> => {
+export const me = async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -100,7 +100,7 @@ export const me = async (req: Request, res: Response): Promise<void> => {
       return res.status(404).json({ error: "User not found" } as ErrorResponse);
     }
 
-    const response: MeResponse = { user: user[0] };
+    const response: MeResponse = { user: user[0]! };
     return res.status(200).json(response);
   } catch (error) {
     console.error("Error fetching user:", error);

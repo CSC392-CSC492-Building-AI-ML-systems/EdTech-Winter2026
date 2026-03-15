@@ -6,8 +6,6 @@ import { users } from './db/schema.js';
 import { chat, translateToFrench } from './services/cohere.js';
 import authRouter from './routes/auth.js';
 import apiKeysRouter from './routes/api_key.js';
-import classroomsRouter from './routes/classrooms.js';
-import worksheetsRouter from './routes/worksheets.js';
 import { apiKeyMiddleware } from './middleware/api_key.js';
 import type { TranslationResponse, CohereResponse, ErrorResponse } from './types/index.js';
 const { port, nodeEnv } = config;
@@ -19,7 +17,7 @@ app.use(cors());
 app.use(express.json());
 
 // Translation route (no API key required for demo)
-app.get("/translation", async (req, res): Promise<void> => {
+app.get("/translation", async (req, res) => {
     try {
         const text = req.query.text as string;
         
@@ -37,7 +35,7 @@ app.get("/translation", async (req, res): Promise<void> => {
             originalLanguage: "English",
             targetLanguage: "French",
             originalText: text,
-            translatedText: translatedContent
+            translatedText: translatedContent || ""
         };
         res.status(200).json(response);
     } catch (err) {
@@ -52,16 +50,14 @@ app.use(apiKeyMiddleware);
 
 app.use("/api/auth", authRouter);
 app.use("/api/keys", apiKeysRouter);
-app.use("/api/classrooms", classroomsRouter);
-app.use("/api/worksheets", worksheetsRouter);
 
-app.get("/test", (req, res): void => {
+app.get("/test", (req, res) => {
     console.log(req.apiKey);
     res.send("Test");
 })
 
 // Sample Cohere API endpoint
-app.get("/cohere/:message", async (req, res): Promise<void> => {
+app.get("/cohere/:message", async (req, res) => {
     try {
         const message = (req.params.message as string) || "Hello, how are you?";
         const response = await chat(message);

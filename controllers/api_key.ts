@@ -7,7 +7,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import type { CreateApiKeyRequest, UpdateApiKeyRequest, CreateApiKeyResponse, DeleteApiKeyResponse, ErrorResponse } from "../types/index.js";
 
-export const createApiKey = async (req: Request, res: Response): Promise<void> => {
+export const createApiKey = async (req: Request, res: Response) => {
   try {
     const { label, scopes } = req.body as CreateApiKeyRequest;
 
@@ -58,6 +58,8 @@ export const createApiKey = async (req: Request, res: Response): Promise<void> =
         key: api_keys.key,
         label: api_keys.label,
         scopes: api_keys.scopes,
+        createdAt: api_keys.createdAt,
+        updatedAt: api_keys.updatedAt,
       });
 
     if (!api_key[0]) {
@@ -65,7 +67,7 @@ export const createApiKey = async (req: Request, res: Response): Promise<void> =
     }
 
     const response: CreateApiKeyResponse = {
-      api_key: { ...api_key[0], key: key },
+      api_key: { ...api_key[0], key: key, scopes: api_key[0].scopes || [] },
     };
     return res.status(201).json(response);
   } catch (error) {
@@ -74,7 +76,7 @@ export const createApiKey = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const getApiKeys = async (req: Request, res: Response): Promise<void> => {
+export const getApiKeys = async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -100,7 +102,7 @@ export const getApiKeys = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const getApiKeyData = async (req: Request, res: Response): Promise<void> => {
+export const getApiKeyData = async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -133,7 +135,7 @@ export const getApiKeyData = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const updateApiKey = async (req: Request, res: Response): Promise<void> => {
+export const updateApiKey = async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
@@ -164,7 +166,7 @@ export const updateApiKey = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const deleteApiKey = async (req: Request, res: Response): Promise<void> => {
+export const deleteApiKey = async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
