@@ -5,19 +5,20 @@ import { api_keys, users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import type { CreateApiKeyRequest, UpdateApiKeyRequest, CreateApiKeyResponse, DeleteApiKeyResponse, ErrorResponse } from "../types/index.js";
 
-export const createApiKey = async (req: Request, res: Response) => {
+export const createApiKey = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { label, scopes } = req.body;
+    const { label, scopes } = req.body as CreateApiKeyRequest;
 
     if (!label || !scopes) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res.status(400).json({ error: "Missing required fields" } as ErrorResponse);
     }
 
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Unauthorized" } as ErrorResponse);
     }
     console.log(authHeader);
     const token = authHeader.substring(7);
@@ -33,7 +34,7 @@ export const createApiKey = async (req: Request, res: Response) => {
       .where(eq(users.id, userId));
 
     if (userExists.length === 0) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid credentials" } as ErrorResponse);
     }
 
     const raw = randomBytes(32).toString("hex");
@@ -60,24 +61,25 @@ export const createApiKey = async (req: Request, res: Response) => {
       });
 
     if (!api_key[0]) {
-      return res.status(500).json({ error: "Failed to create API key" });
+      return res.status(500).json({ error: "Failed to create API key" } as ErrorResponse);
     }
 
-    return res.status(201).json({
+    const response: CreateApiKeyResponse = {
       api_key: { ...api_key[0], key: key },
-    });
+    };
+    return res.status(201).json(response);
   } catch (error) {
     console.error("Error creating API key:", error);
-    return res.status(500).json({ error: "Failed to create API key" });
+    return res.status(500).json({ error: "Failed to create API key" } as ErrorResponse);
   }
 };
 
-export const getApiKeys = async (req: Request, res: Response) => {
+export const getApiKeys = async (req: Request, res: Response): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Unauthorized" } as ErrorResponse);
     }
 
     const token = authHeader.substring(7);
@@ -94,20 +96,20 @@ export const getApiKeys = async (req: Request, res: Response) => {
     return res.status(200).json({ allKeys });
   } catch (error) {
     console.error("Error fetching API keys:", error);
-    return res.status(500).json({ error: "Failed to fetch API keys" });
+    return res.status(500).json({ error: "Failed to fetch API keys" } as ErrorResponse);
   }
 };
 
-export const getApiKeyData = async (req: Request, res: Response) => {
+export const getApiKeyData = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res.status(400).json({ error: "Missing required fields" } as ErrorResponse);
     }
 
     const key = req.headers["x-api-key"] as string;
     if (!key) {
-      return res.status(400).json({ error: "Missing API key header" });
+      return res.status(400).json({ error: "Missing API key header" } as ErrorResponse);
     }
 
     const hash = createHash("sha256").update(key).digest("hex");
@@ -119,7 +121,7 @@ export const getApiKeyData = async (req: Request, res: Response) => {
       .limit(1);
 
     if (!apiKey || apiKey.key !== hash) {
-      return res.status(404).json({ error: "API key not found" });
+      return res.status(404).json({ error: "API key not found" } as ErrorResponse);
     }
 
     const { id: _, key: __, ...rest } = apiKey;
@@ -127,20 +129,20 @@ export const getApiKeyData = async (req: Request, res: Response) => {
     return res.status(200).json({ apiKey: rest });
   } catch (error) {
     console.error("Error fetching API key:", error);
-    return res.status(500).json({ error: "Failed to fetch API key" });
+    return res.status(500).json({ error: "Failed to fetch API key" } as ErrorResponse);
   }
 };
 
-export const updateApiKey = async (req: Request, res: Response) => {
+export const updateApiKey = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid ID" });
+      return res.status(400).json({ error: "Invalid ID" } as ErrorResponse);
     }
 
-    const { label, scopes } = req.body;
+    const { label, scopes } = req.body as UpdateApiKeyRequest;
     if (!label && !scopes) {
-      return res.status(400).json({ error: "Nothing to update" });
+      return res.status(400).json({ error: "Nothing to update" } as ErrorResponse);
     }
 
     const [updated] = await db
@@ -150,7 +152,7 @@ export const updateApiKey = async (req: Request, res: Response) => {
       .returning();
 
     if (!updated) {
-      return res.status(404).json({ error: "API key not found" });
+      return res.status(404).json({ error: "API key not found" } as ErrorResponse);
     }
 
     const { id: _, key: __, ...rest } = updated;
@@ -158,15 +160,15 @@ export const updateApiKey = async (req: Request, res: Response) => {
     return res.status(200).json({ apiKey: rest });
   } catch (error) {
     console.error("Error updating API key:", error);
-    return res.status(500).json({ error: "Failed to update API key" });
+    return res.status(500).json({ error: "Failed to update API key" } as ErrorResponse);
   }
 };
 
-export const deleteApiKey = async (req: Request, res: Response) => {
+export const deleteApiKey = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid ID" });
+      return res.status(400).json({ error: "Invalid ID" } as ErrorResponse);
     }
 
     const [deleted] = await db
@@ -175,12 +177,13 @@ export const deleteApiKey = async (req: Request, res: Response) => {
       .returning();
 
     if (!deleted) {
-      return res.status(404).json({ error: "API key not found" });
+      return res.status(404).json({ error: "API key not found" } as ErrorResponse);
     }
 
-    return res.status(200).json({ message: "API key deleted successfully" });
+    const response: DeleteApiKeyResponse = { message: "API key deleted successfully" };
+    return res.status(200).json(response);
   } catch (error) {
     console.error("Error deleting API key:", error);
-    return res.status(500).json({ error: "Failed to delete API key" });
+    return res.status(500).json({ error: "Failed to delete API key" } as ErrorResponse);
   }
 };
