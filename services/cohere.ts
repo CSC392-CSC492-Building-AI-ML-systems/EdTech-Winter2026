@@ -23,8 +23,8 @@ export async function chat(message: string, model: string = 'command-a-03-2025')
     ],
   });
 
-  return response.message?.content?.[0]?.type === 'text' 
-    ? response.message.content[0].text 
+  return response.message?.content?.[0]?.type === 'text'
+    ? response.message.content[0].text
     : null;
 }
 
@@ -35,7 +35,7 @@ export async function chat(message: string, model: string = 'command-a-03-2025')
  * @param model - The model to use (default: command-a-03-2025)
  */
 export async function chatStream(
-  message: string, 
+  message: string,
   onToken: (token: string) => void,
   model: string = 'command-a-03-2025'
 ) {
@@ -64,7 +64,7 @@ export async function chatStream(
  * @returns The embeddings
  */
 export async function embed(
-  texts: string[], 
+  texts: string[],
   inputType: 'search_document' | 'search_query' | 'classification' | 'clustering' = 'search_document',
   model: string = 'embed-english-v3.0'
 ) {
@@ -106,8 +106,8 @@ ${text}`;
     ],
   });
 
-  return response.message?.content?.[0]?.type === 'text' 
-    ? response.message.content[0].text 
+  return response.message?.content?.[0]?.type === 'text'
+    ? response.message.content[0].text
     : null;
 }
 
@@ -139,9 +139,55 @@ ${content}`;
     ],
   });
 
-  return response.message?.content?.[0]?.type === 'text' 
-    ? response.message.content[0].text 
+  return response.message?.content?.[0]?.type === 'text'
+    ? response.message.content[0].text
     : null;
+}
+
+export async function translateBatch(
+  items: { id: string; text: string }[],
+  targetLanguage: string,
+  gradeLevel?: string,
+  model: string = 'command-a-03-2025'
+): Promise<Record<string, { translatedText: string | null; error?: string }>> {
+
+  const buildPrompt = (text: string) => {
+    const gradeLevelInstruction = gradeLevel
+      ? ` Use vocabulary and sentence structure appropriate for ${gradeLevel} students.`
+      : '';
+    return `You are a professional translator. Translate the following content into ${targetLanguage}. Maintain the same structure, formatting, and tone.${gradeLevelInstruction} Provide ONLY the translated text without any explanations.\n\nCONTENT TO TRANSLATE:\n\n${text}`;
+  };
+
+  const promises = items.map(async (item) => {
+    const prompt = buildPrompt(item.text);
+    const response = await cohere.chat({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const translatedText =
+      response.message?.content?.[0]?.type === 'text'
+        ? response.message.content[0].text
+        : null;
+    return { id: item.id, translatedText };
+  });
+
+  const settled = await Promise.allSettled(promises);
+
+  const results: Record<string, { translatedText: string | null; error?: string }> = {};
+  for (let i = 0; i < settled.length; i++) {
+    const result = settled[i]!;
+    const item = items[i]!;
+    if (result.status === 'fulfilled') {
+      results[result.value.id] = { translatedText: result.value.translatedText };
+    } else {
+      results[item.id] = {
+        translatedText: null,
+        error: result.reason?.message || 'Translation failed',
+      };
+    }
+  }
+
+  return results;
 }
 
 export { cohere, SELF_ASSESSMENT_CONTENT };
