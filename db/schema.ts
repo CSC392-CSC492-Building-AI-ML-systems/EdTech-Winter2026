@@ -4,6 +4,7 @@ import {
   pgEnum,
   pgTable,
   serial,
+  text,
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -38,3 +39,17 @@ export type ApiKey = InferSelectModel<typeof api_keys>;
 
 export type NewUser = InferInsertModel<typeof users>;
 export type NewApiKey = InferInsertModel<typeof api_keys>;
+
+export const translation_glossary = pgTable("translation_glossary", {
+  id: serial("id").primaryKey(),
+  term: varchar("term", { length: 255 }).notNull().unique(),
+  meaning: text("meaning").notNull(),
+  category: varchar("category", { length: 50 }).notNull(),
+  usageContext: text("usage_context").notNull(),
+  doNotTranslate: boolean("do_not_translate").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type GlossaryTerm = InferSelectModel<typeof translation_glossary>;
+export type NewGlossaryTerm = InferInsertModel<typeof translation_glossary>;
