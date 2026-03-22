@@ -4,12 +4,13 @@ import { users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import type { AuthRegisterRequest, AuthLoginRequest, AuthResponse, MeResponse, ErrorResponse } from "../types/index.js";
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body as AuthRegisterRequest;
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
+      return res.status(400).json({ error: "Email and password are required" } as ErrorResponse);
     }
 
     const userExists = await db
@@ -18,7 +19,7 @@ export const register = async (req: Request, res: Response) => {
       .where(eq(users.email, email));
 
     if (userExists.length > 0) {
-      return res.status(400).json({ error: "User already exists" });
+      return res.status(400).json({ error: "User already exists" } as ErrorResponse);
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -28,48 +29,51 @@ export const register = async (req: Request, res: Response) => {
       .returning({ id: users.id, email: users.email });
 
     if (!user[0]) {
-      return res.status(500).json({ error: "Failed to register user" });
+      return res.status(500).json({ error: "Failed to register user" } as ErrorResponse);
     }
 
     const token = jwt.sign({ id: user[0].id }, process.env.JWT_SECRET!, {
       expiresIn: "1h",
     });
 
-    return res.status(201).json({ user: user[0], token });
+    const response: AuthResponse = { user: user[0], token };
+    return res.status(201).json(response);
   } catch (error) {
     console.error("Error registering user:", error);
-    return res.status(500).json({ error: "Failed to register user" });
+    return res.status(500).json({ error: "Failed to register user" } as ErrorResponse);
   }
 };
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body as AuthLoginRequest;
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
+      return res.status(400).json({ error: "Email and password are required" } as ErrorResponse);
     }
 
     const user = await db.select().from(users).where(eq(users.email, email));
 
     if (user.length === 0) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid credentials" } as ErrorResponse);
     }
 
     const isValidPassword = await bcrypt.compare(password, user[0]!.password);
     if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid credentials" } as ErrorResponse);
     }
 
     const token = jwt.sign({ id: user[0]!.id }, process.env.JWT_SECRET!, {
       expiresIn: "1h",
     });
 
-    return res
-      .status(200)
-      .json({ user: { id: user[0]!.id, email: user[0]!.email }, token });
+    const response: AuthResponse = {
+      user: { id: user[0]!.id, email: user[0]!.email },
+      token
+    };
+    return res.status(200).json(response);
   } catch (error) {
     console.error("Error logging in user:", error);
-    return res.status(500).json({ error: "Failed to login user" });
+    return res.status(500).json({ error: "Failed to login user" } as ErrorResponse);
   }
 };
 
@@ -78,7 +82,7 @@ export const me = async (req: Request, res: Response) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Unauthorized" } as ErrorResponse);
     }
 
     const token = authHeader.substring(7);
@@ -93,12 +97,13 @@ export const me = async (req: Request, res: Response) => {
       .where(eq(users.id, userId));
 
     if (user.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found" } as ErrorResponse);
     }
 
-    return res.status(200).json({ user: user[0] });
+    const response: MeResponse = { user: user[0]! };
+    return res.status(200).json(response);
   } catch (error) {
     console.error("Error fetching user:", error);
-    return res.status(500).json({ error: "Failed to fetch user" });
+    return res.status(500).json({ error: "Failed to fetch user" } as ErrorResponse);
   }
 };
