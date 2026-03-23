@@ -1,19 +1,39 @@
 import { CohereClientV2 } from 'cohere-ai';
+import OpenAI from 'openai';
 import config from '../config/config.js';
 
 const cohere = new CohereClientV2({
   token: config.cohereApiKey,
 });
 
-export async function chat(message: string, model: string = 'command-a-03-2025') {
-  const response = await cohere.chat({
-    model,
-    messages: [{ role: 'user', content: message }],
+const openai = new OpenAI({
+  apiKey: config.openaiApiKey,
+});
+
+async function chatWithFallback(prompt: string, model: string) {
+  try {
+    const response = await cohere.chat({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    if (response.message?.content?.[0]?.type === 'text') {
+      return response.message.content[0].text;
+    }
+  } catch (error) {
+    console.error('Cohere chat failed, falling back to OpenAI:', error);
+  }
+
+  const fallback = await openai.responses.create({
+    model: 'gpt-4o-mini',
+    input: prompt,
   });
 
-  return response.message?.content?.[0]?.type === 'text' 
-    ? response.message.content[0].text 
-    : null;
+  return fallback.output_text || null;
+}
+
+export async function chat(message: string, model: string = 'command-a-03-2025') {
+  return chatWithFallback(message, model);
 }
 
 export async function chatStream(
@@ -56,14 +76,7 @@ export async function translateToFrench(text: string, model: string = 'command-a
 Text to translate:
 ${text}`;
 
-  const response = await cohere.chat({
-    model,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  return response.message?.content?.[0]?.type === 'text' 
-    ? response.message.content[0].text 
-    : null;
+  return chatWithFallback(prompt, model);
 }
 
 export async function translateContent(
@@ -77,15 +90,11 @@ CONTENT TO TRANSLATE:
 
 ${content}`;
 
-  const response = await cohere.chat({
-    model,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  return response.message?.content?.[0]?.type === 'text' 
-    ? response.message.content[0].text 
-    : null;
+  return chatWithFallback(prompt, model);
 }
+
+
+
 
 export async function translateContentStream(
   content: string,
