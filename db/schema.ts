@@ -111,6 +111,7 @@ export const translation_log = pgTable("translation_log", {
     .references(() => users.id),
   sourceText: varchar("source_text").notNull(),
   translatedText: varchar("translated_text"),
+  sourceLanguage: varchar("source_language", { length: 16 }).notNull(),
   targetLanguage: varchar("target_language", { length: 16 }).notNull(),
   model: varchar("model", { length: 255 }).notNull(),
   tokenCount: integer("token_count"),
