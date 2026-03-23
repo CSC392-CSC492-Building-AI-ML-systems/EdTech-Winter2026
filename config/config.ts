@@ -7,6 +7,7 @@ interface Config {
   nodeEnv: string;
   databaseUrl: string;
   cohereApiKey: string;
+  openaiApiKey: string;
 }
 
 const config: Config = {
@@ -14,6 +15,7 @@ const config: Config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   databaseUrl: process.env.DATABASE_URL || '',
   cohereApiKey: process.env.COHERE_API_KEY || '',
+  openaiApiKey: process.env.OPENAI_API_KEY || '',
 };
 
 export default config;
