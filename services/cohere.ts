@@ -1,40 +1,43 @@
 import { CohereClientV2 } from 'cohere-ai';
+import OpenAI from 'openai';
 import config from '../config/config.js';
 import { matchTerms, buildGlossaryPrompt } from './glossary.js';
+import { response } from 'express';
 
-// Initialize the Cohere client
 const cohere = new CohereClientV2({
   token: config.cohereApiKey,
 });
 
-/**
- * Generate a chat response using Cohere's Command model
- * @param message - The user message to send
- * @param model - The model to use (default: command-a-03-2025)
- * @returns The assistant's response text
- */
-export async function chat(message: string, model: string = 'command-a-03-2025') {
-  const response = await cohere.chat({
-    model,
-    messages: [
-      {
-        role: 'user',
-        content: message,
-      },
-    ],
+const openai = new OpenAI({
+  apiKey: config.openaiApiKey,
+});
+
+async function chatWithFallback(prompt: string, model: string) {
+  try {
+    const response = await cohere.chat({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    if (response.message?.content?.[0]?.type === 'text') {
+      return response.message.content[0].text;
+    }
+  } catch (error) {
+    console.error('Cohere chat failed, falling back to OpenAI:', error);
+  }
+
+  const fallback = await openai.responses.create({
+    model: 'gpt-4o-mini',
+    input: prompt,
   });
 
-  return response.message?.content?.[0]?.type === 'text' 
-    ? response.message.content[0].text 
-    : null;
+  return fallback.output_text || null;
 }
 
-/**
- * Generate a chat response with streaming
- * @param message - The user message to send
- * @param onToken - Callback function called for each token
- * @param model - The model to use (default: command-a-03-2025)
- */
+export async function chat(message: string, model: string = 'command-a-03-2025') {
+  return chatWithFallback(message, model);
+}
+
 export async function chatStream(
   message: string, 
   onToken: (token: string) => void,
@@ -42,12 +45,7 @@ export async function chatStream(
 ) {
   const stream = await cohere.chatStream({
     model,
-    messages: [
-      {
-        role: 'user',
-        content: message,
-      },
-    ],
+    messages: [{ role: 'user', content: message }],
   });
 
   for await (const event of stream) {
@@ -57,13 +55,6 @@ export async function chatStream(
   }
 }
 
-/**
- * Generate embeddings for text
- * @param texts - Array of texts to embed
- * @param inputType - The type of input (search_document, search_query, classification, clustering)
- * @param model - The model to use (default: embed-english-v3.0)
- * @returns The embeddings
- */
 export async function embed(
   texts: string[], 
   inputType: 'search_document' | 'search_query' | 'classification' | 'clustering' = 'search_document',
@@ -79,7 +70,6 @@ export async function embed(
   return response.embeddings;
 }
 
-// Self-Assessment educational content
 const SELF_ASSESSMENT_CONTENT = `I`;
 
 /**
@@ -117,7 +107,33 @@ CRITICAL RULES:
 
 ${glossaryBlock}`.trim();
 
-  const response = await cohere.chat({
+  return chatWithFallback(systemPrompt, model);
+}
+
+
+
+
+export async function translateContentStream(
+  content: string,
+  targetLanguage: string,
+  onToken: (token: string) => void,
+  model: string = 'command-a-03-2025'
+) {
+  const matched = matchTerms(content);
+  const glossaryBlock = buildGlossaryPrompt(matched);
+
+  const systemPrompt = `You are an expert educational content translator. Your task is to translate educational material while preserving pedagogical meaning and cultural relevance.
+
+CRITICAL RULES:
+- Translate for MEANING, not word-for-word. Adapt analogies, idioms, and culturally-specific references to equivalents that resonate in the target culture and region.
+- For abbreviations/acronyms: use the target language and region's established equivalent if one exists. If none exists, keep the original with a brief inline explanation on first use.
+- Maintain the same educational register and tone.
+- Preserve all formatting, structure, and markup.
+- Provide ONLY the translated text without any explanations or commentary.
+
+${glossaryBlock}`.trim();
+
+  const stream = await cohere.chatStream({
     model,
     messages: [
       {
@@ -131,9 +147,11 @@ ${glossaryBlock}`.trim();
     ],
   });
 
-  return response.message?.content?.[0]?.type === 'text'
-    ? response.message.content[0].text
-    : null;
+  for await (const event of stream) {
+    if (event.type === 'content-delta' && event.delta?.message?.content?.text) {
+      onToken(event.delta.message.content.text);
+    }
+  }
 }
 
 export { cohere, SELF_ASSESSMENT_CONTENT };

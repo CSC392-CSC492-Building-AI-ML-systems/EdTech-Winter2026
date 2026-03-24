@@ -1,12 +1,12 @@
 import * as express from 'express';
+import type { ApiKeyResponse } from './apiKey.js';
+
 declare global {
   namespace Express {
     interface Request {
-      apiKey?: {
+      apiKey?: ApiKeyResponse & {
         id: number;
-        user_id: number;
-        label: string;
-        scopes: ("read" | "write" | "translate")[];
+        users_id: number;
       };
     }
   }
