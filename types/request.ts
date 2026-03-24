@@ -6,7 +6,7 @@ declare global {
     interface Request {
       apiKey?: ApiKeyResponse & {
         id: number;
-        users_id: number;
+        user_id: number;
       };
     }
   }
