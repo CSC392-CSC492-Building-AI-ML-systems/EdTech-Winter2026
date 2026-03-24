@@ -2,7 +2,6 @@ import { CohereClientV2 } from 'cohere-ai';
 import OpenAI from 'openai';
 import config from '../config/config.js';
 import { matchTerms, buildGlossaryPrompt } from './glossary.js';
-import { response } from 'express';
 
 const cohere = new CohereClientV2({
   token: config.cohereApiKey,
@@ -70,24 +69,6 @@ export async function embed(
   return response.embeddings;
 }
 
-const SELF_ASSESSMENT_CONTENT = `I`;
-
-/**
- * Translate text to French
- */
-export async function translateToFrench(
-  text: string,
-  model: string = 'command-a-03-2025'
-) {
-  return translateContent(text, 'French', model);
-}
-
-/**
- * Translate content to any target language with glossary-aware context injection.
- * Matches glossary terms in the source text and injects their definitions into
- * the system prompt so the LLM produces culturally and linguistically appropriate
- * translations rather than literal word-for-word output.
- */
 export async function translateContent(
   content: string,
   targetLanguage: string,
@@ -107,11 +88,9 @@ CRITICAL RULES:
 
 ${glossaryBlock}`.trim();
 
-  return chatWithFallback(systemPrompt, model);
+  const prompt = `${systemPrompt}\n\nTranslate the following into ${targetLanguage}:\n\n${content}`;
+  return chatWithFallback(prompt, model);
 }
-
-
-
 
 export async function translateContentStream(
   content: string,
@@ -160,7 +139,6 @@ export async function translateBatch(
   gradeLevel?: string,
   model: string = 'command-a-03-2025'
 ): Promise<Record<string, { translatedText: string | null; error?: string }>> {
-
   const buildPrompt = (text: string) => {
     const gradeLevelInstruction = gradeLevel
       ? ` Use vocabulary and sentence structure appropriate for ${gradeLevel} students.`
@@ -200,5 +178,5 @@ export async function translateBatch(
   return results;
 }
 
-export { cohere, SELF_ASSESSMENT_CONTENT };
+export { cohere };
 export default cohere;

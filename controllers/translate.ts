@@ -9,7 +9,7 @@ interface BatchTranslateBody {
 
 export const batchTranslate = async (
   req: Request<object, object, BatchTranslateBody>,
-  res: Response
+  res: Response,
 ) => {
   try {
     const { items, targetLanguage, gradeLevel } = req.body;

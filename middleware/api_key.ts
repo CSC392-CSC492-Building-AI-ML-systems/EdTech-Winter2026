@@ -41,6 +41,8 @@ export const apiKeyMiddleware = async (req: Request, res: Response, next: NextFu
             user_id: apiKeyResult[0].users_id,
             label: apiKeyResult[0].label,
             scopes: apiKeyResult[0].scopes!,
+            createdAt: apiKeyResult[0].createdAt,
+            updatedAt: apiKeyResult[0].updatedAt,
         }
         
         next();
