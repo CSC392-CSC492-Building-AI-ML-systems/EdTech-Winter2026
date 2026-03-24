@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { translation_log } from "../db/schema.js";
 import type { LogTranslationParams } from "../types/common.js";
+import { logTranslation, getLogsByDateRange } from "../services/translation_log.js";
 
 export const getTranslationLog = async (req: Request, res: Response) => {
     try {
@@ -106,16 +107,7 @@ export const addTranslationLogEntry = async (req: Request, res: Response) => {
             }
         }
 
-        await db.insert(translation_log).values({
-            userId,
-            sourceText: sourceText.trim(),
-            translatedText: translatedText ?? null,
-            targetLanguage: targetLanguage.trim(),
-            model: model.trim(),
-            tokenCount: tokenCount ?? null,
-            latencyMs,
-            createdAt: new Date(),
-        } as any).execute();
+        await logTranslation({ userId, sourceText, translatedText, targetLanguage, model, tokenCount, latencyMs });
 
         return res.status(201).json({ message: "Translation log entry added successfully" });
     } catch (error) {
@@ -147,5 +139,38 @@ export const deleteTranslationLogEntry = async (req: Request, res: Response) => 
     } catch (error) {
         console.error("Error deleting translation log entry:", error);
         return res.status(500).json({ error: "Failed to delete translation log entry" });
+    }
+};
+
+export const getLogsByDateRangeHandler = async (req: Request, res: Response) => {
+    try {
+        const { from, to } = req.query;
+
+        if (!from || !to) {
+            return res.status(400).json({ error: "Both 'from' and 'to' query parameters are required (ISO 8601 format)" });
+        }
+
+        if (typeof from !== "string" || typeof to !== "string") {
+            return res.status(400).json({ error: "'from' and 'to' must be strings" });
+        }
+
+        const fromDate = new Date(from);
+        const toDate = new Date(to);
+
+        if (isNaN(fromDate.getTime())) {
+            return res.status(400).json({ error: "'from' is not a valid date" });
+        }
+        if (isNaN(toDate.getTime())) {
+            return res.status(400).json({ error: "'to' is not a valid date" });
+        }
+        if (fromDate > toDate) {
+            return res.status(400).json({ error: "'from' must be before or equal to 'to'" });
+        }
+
+        const entries = await getLogsByDateRange(fromDate, toDate);
+        return res.status(200).json({ log: entries, count: entries.length });
+    } catch (error) {
+        console.error("Error fetching logs by date range:", error);
+        return res.status(500).json({ error: "Failed to fetch logs by date range" });
     }
 };

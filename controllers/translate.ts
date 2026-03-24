@@ -1,5 +1,8 @@
 import type { Request, Response } from "express";
 import { translateBatch } from "../services/cohere.js";
+import { logTranslation, getTranslationStatsFromDb } from "../services/translation_log.js";
+
+const DEFAULT_MODEL = 'command-a-03-2025';
 
 interface BatchTranslateBody {
   items: { id: string; text: string }[];
@@ -49,11 +52,41 @@ export const batchTranslate = async (
       return;
     }
 
+    const start = Date.now();
     const results = await translateBatch(items, targetLanguage, gradeLevel);
+    const latencyMs = Date.now() - start;
 
     res.status(200).json({ results });
+
+    if (req.apiKey) {
+      for (const item of items) {
+        const result = results[item.id];
+        if (result) {
+          logTranslation({
+            userId: req.apiKey.user_id,
+            sourceText: item.text,
+            translatedText: result.translatedText ?? undefined,
+            targetLanguage,
+            model: DEFAULT_MODEL,
+            tokenCount: result.tokenCount ?? undefined,
+            latencyMs,
+          }).catch((err) => console.error("Failed to log translation:", err));
+        }
+      }
+    }
   } catch (error) {
     console.error("Batch translation error:", error);
     res.status(500).json({ error: "Failed to perform batch translation" });
+  }
+};
+
+export const getTranslationStats = async (_req: Request, res: Response) => {
+  try {
+    const stats = await getTranslationStatsFromDb();
+    
+    return res.status(200).json(stats);
+  } catch (error) {
+    console.error("Error fetching translation stats:", error);
+    return res.status(500).json({ error: "Failed to fetch translation stats" });
   }
 };

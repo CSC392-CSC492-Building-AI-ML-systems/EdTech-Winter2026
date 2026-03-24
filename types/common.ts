@@ -13,3 +13,17 @@ export interface LogTranslationParams {
     tokenCount: number | undefined;
     latencyMs: number;
 }
+
+export interface TranslationStats {
+    totalTranslations: number;
+    translationsToday: number;
+    successRate: number | null;
+    byLanguage: { language: string; translations: number }[];
+    byModel: { model: string; translations: number }[];
+    averageLatencyMs: number | null;
+    totalTokensUsed: number | null;
+    averageTokensPerTranslation: number | null;
+    tokensByLanguage: { language: string; totalTokens: number }[];
+    topUsers: { userId: number; translations: number }[];
+    cacheHitRate: null;
+}
