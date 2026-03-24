@@ -1,10 +1,6 @@
 {
-<<<<<<< HEAD
-  "id": "9b5d2def-0e87-43de-becc-c662982c96b3",
-=======
-  "id": "0b259382-1b32-4fcb-ad8d-6f12ba90f99d",
->>>>>>> dev
-  "prevId": "87066420-b8c1-472c-b4ec-e100bb056726",
+  "id": "00e6547b-9eb2-439a-9a8e-12a2fb73d7ee",
+  "prevId": "0b259382-1b32-4fcb-ad8d-6f12ba90f99d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -101,13 +97,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-<<<<<<< HEAD
-    "public.translation_glossary": {
-      "name": "translation_glossary",
-=======
     "public.classroom_memberships": {
       "name": "classroom_memberships",
->>>>>>> dev
       "schema": "",
       "columns": {
         "id": {
@@ -116,10 +107,6 @@
           "primaryKey": true,
           "notNull": true
         },
-<<<<<<< HEAD
-        "term": {
-          "name": "term",
-=======
         "classroom_id": {
           "name": "classroom_id",
           "type": "integer",
@@ -195,38 +182,10 @@
         },
         "name": {
           "name": "name",
->>>>>>> dev
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
-<<<<<<< HEAD
-        "meaning": {
-          "name": "meaning",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "category": {
-          "name": "category",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "usage_context": {
-          "name": "usage_context",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "do_not_translate": {
-          "name": "do_not_translate",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-=======
         "class_code": {
           "name": "class_code",
           "type": "varchar(24)",
@@ -239,7 +198,6 @@
           "primaryKey": false,
           "notNull": true
         },
->>>>>>> dev
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -256,16 +214,6 @@
         }
       },
       "indexes": {},
-<<<<<<< HEAD
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "translation_glossary_term_unique": {
-          "name": "translation_glossary_term_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "term"
-=======
       "foreignKeys": {
         "classrooms_owner_user_id_users_id_fk": {
           "name": "classrooms_owner_user_id_users_id_fk",
@@ -288,7 +236,6 @@
           "nullsNotDistinct": false,
           "columns": [
             "class_code"
->>>>>>> dev
           ]
         }
       },
@@ -296,8 +243,52 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-<<<<<<< HEAD
-=======
+    "public.languages": {
+      "name": "languages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "languages_name_unique": {
+          "name": "languages_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        },
+        "languages_code_unique": {
+          "name": "languages_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.user_worksheet_progress": {
       "name": "user_worksheet_progress",
       "schema": "",
@@ -377,7 +368,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
->>>>>>> dev
     "public.users": {
       "name": "users",
       "schema": "",
@@ -400,15 +390,12 @@
           "primaryKey": false,
           "notNull": true
         },
-<<<<<<< HEAD
-=======
         "last_worksheet_id": {
           "name": "last_worksheet_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
->>>>>>> dev
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -439,11 +426,6 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
-<<<<<<< HEAD
-    }
-  },
-  "enums": {
-=======
     },
     "public.worksheets": {
       "name": "worksheets",
@@ -546,7 +528,6 @@
         "student"
       ]
     },
->>>>>>> dev
     "public.scopes": {
       "name": "scopes",
       "schema": "public",
@@ -555,8 +536,6 @@
         "translate",
         "write"
       ]
-<<<<<<< HEAD
-=======
     },
     "public.worksheet_progress": {
       "name": "worksheet_progress",
@@ -566,7 +545,6 @@
         "in_progress",
         "completed"
       ]
->>>>>>> dev
     }
   },
   "schemas": {},
