@@ -1,5 +1,11 @@
 import type { Request, Response } from "express";
 import { translateBatch, translateContent } from "../services/cohere.js";
+import {
+  logTranslation,
+  getTranslationStatsFromDb,
+} from "../services/translation_log.js";
+
+const DEFAULT_MODEL = "command-a-translate-08-2025";
 import { extractTextFromPdf, deleteFile } from "../services/pdf.js";
 
 export const batchTranslate = async (req: Request, res: Response) => {
@@ -28,6 +34,7 @@ export const batchTranslate = async (req: Request, res: Response) => {
       return;
     }
 
+    const start = Date.now();
     const items: { id: string; text: string }[] = [];
 
     for (const file of files) {
@@ -42,8 +49,31 @@ export const batchTranslate = async (req: Request, res: Response) => {
     }
 
     const results = await translateBatch(items, targetLanguage, gradeLevel);
+    const latencyMs = Date.now() - start;
 
     res.status(200).json({ results });
+
+    if (req.apiKey) {
+      for (const item of items) {
+        const result = results[item.id];
+        if (result) {
+          try {
+            const res = await logTranslation({
+              userId: req.apiKey.user_id,
+              sourceText: item.text,
+              translatedText: result.translatedText ?? undefined,
+              targetLanguage,
+              model: DEFAULT_MODEL,
+              tokenCount: result.tokenCount ?? undefined,
+              latencyMs,
+            });
+            console.log("Logged translation:", res);
+          } catch (err) {
+            console.error("Failed to log translation:", err);
+          }
+        }
+      }
+    }
   } catch (error) {
     console.error("Batch translation error:", error);
     res.status(500).json({ error: "Failed to perform batch translation" });
@@ -75,7 +105,9 @@ export const batchTranslateStream = async (req: Request, res: Response) => {
     const gradeLevel = req.body.gradeLevel as string | undefined;
 
     if (!targetLanguage || typeof targetLanguage !== "string") {
-      sendEvent("error", { error: "targetLanguage is required and must be a string" });
+      sendEvent("error", {
+        error: "targetLanguage is required and must be a string",
+      });
       return res.end();
     }
 
@@ -121,7 +153,6 @@ export const batchTranslateStream = async (req: Request, res: Response) => {
           error: "Translation returned no content",
         });
       }
-
     });
 
     await Promise.allSettled(tasks);
@@ -138,5 +169,15 @@ export const batchTranslateStream = async (req: Request, res: Response) => {
         await deleteFile(file.path);
       }
     }
+  }
+};
+export const getTranslationStats = async (_req: Request, res: Response) => {
+  try {
+    const stats = await getTranslationStatsFromDb();
+
+    return res.status(200).json(stats);
+  } catch (error) {
+    console.error("Error fetching translation stats:", error);
+    return res.status(500).json({ error: "Failed to fetch translation stats" });
   }
 };
