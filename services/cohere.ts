@@ -33,14 +33,14 @@ async function chatWithFallback(prompt: string, model: string) {
   return fallback.output_text || null;
 }
 
-export async function chat(message: string, model: string = 'command-a-03-2025') {
+export async function chat(message: string, model: string = 'command-a-translate-08-2025') {
   return chatWithFallback(message, model);
 }
 
 export async function chatStream(
   message: string,
   onToken: (token: string) => void,
-  model: string = 'command-a-03-2025'
+  model: string = 'command-a-translate-08-2025'
 ) {
   const stream = await cohere.chatStream({
     model,
@@ -72,7 +72,7 @@ export async function embed(
 export async function translateContent(
   content: string,
   targetLanguage: string,
-  model: string = 'command-a-03-2025'
+  model: string = 'command-a-translate-08-2025'
 ) {
   const matched = matchTerms(content);
   const glossaryBlock = buildGlossaryPrompt(matched);
@@ -96,7 +96,7 @@ export async function translateContentStream(
   content: string,
   targetLanguage: string,
   onToken: (token: string) => void,
-  model: string = 'command-a-03-2025'
+  model: string = 'command-a-translate-08-2025'
 ) {
   const matched = matchTerms(content);
   const glossaryBlock = buildGlossaryPrompt(matched);
@@ -137,7 +137,7 @@ export async function translateBatch(
   items: { id: string; text: string }[],
   targetLanguage: string,
   gradeLevel?: string,
-  model: string = 'command-a-03-2025'
+  model: string = 'command-a-translate-08-2025'
 ): Promise<Record<string, { translatedText: string | null; error?: string }>> {
   const buildPrompt = (text: string) => {
     const gradeLevelInstruction = gradeLevel

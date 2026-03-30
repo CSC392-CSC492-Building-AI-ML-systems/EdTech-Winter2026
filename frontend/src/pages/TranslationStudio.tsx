@@ -1,7 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { FileUp, ArrowRight, Loader2, ChevronDown, FileText, X, Plus, Trash2, Languages, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { FileUp, ArrowRight, Loader2, ChevronDown, FileText, X, Trash2, Languages, CheckCircle2, Download, Eye } from 'lucide-react';
+import { PDFViewer, pdf } from '@react-pdf/renderer';
 import { cn } from '../lib/utils';
+import { getFontFamily } from '../lib/pdfFonts';
 import { api } from '../api/api';
+import { TranslationPDF } from '../components/TranslationPDF';
 
 interface Language {
   id: number;
@@ -9,40 +12,36 @@ interface Language {
   name: string;
 }
 
-interface BatchItem {
-  id: string;
-  text: string;
-}
-
-interface BatchResult {
+interface TranslationResult {
   translatedText: string;
+  originalText?: string;
 }
 
-type Mode = 'batch' | 'pdf';
+type FileStatus = 'idle' | 'extracting' | 'translating' | 'done' | 'error';
 
-let itemCounter = 1;
+interface TranslationStudioProps {
+  onBusyChange?: (busy: boolean) => void;
+}
 
-export function TranslationStudio() {
+export function TranslationStudio({ onBusyChange }: TranslationStudioProps) {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [targetLang, setTargetLang] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<Mode>('batch');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [error, setError] = useState('');
   const [gradeLevel, setGradeLevel] = useState('');
+  const [results, setResults] = useState<Record<string, TranslationResult>>({});
+  const [fileStatuses, setFileStatuses] = useState<Record<string, FileStatus>>({});
+  const [isDragging, setIsDragging] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ fileName: string; result: TranslationResult } | null>(null);
+  const [langSearch, setLangSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Batch items
-  const [items, setItems] = useState<BatchItem[]>([
-    { id: String(itemCounter++), text: '' },
-    { id: String(itemCounter++), text: '' },
-  ]);
-  const [results, setResults] = useState<Record<string, BatchResult>>({});
-
-  // PDF result
-  const [pdfResult, setPdfResult] = useState('');
+  useEffect(() => {
+    onBusyChange?.(loading);
+  }, [loading, onBusyChange]);
 
   useEffect(() => {
     const fetchLangs = async () => {
@@ -71,94 +70,125 @@ export function TranslationStudio() {
   }, []);
 
   const selectedLanguage = languages.find(l => l.code === targetLang);
+  
+  const filteredLanguages = languages.filter(lang => 
+    lang.name.toLowerCase().includes(langSearch.toLowerCase()) ||
+    lang.code.toLowerCase().includes(langSearch.toLowerCase())
+  );
 
-  const addItem = () => {
-    setItems((prev) => [...prev, { id: String(itemCounter++), text: '' }]);
+  const addFiles = (newFiles: FileList | File[]) => {
+    const pdfs = Array.from(newFiles).filter((f) => f.type === 'application/pdf');
+    if (pdfs.length === 0) return;
+    setFiles((prev) => {
+      const existingNames = new Set(prev.map((f) => f.name));
+      const unique = pdfs.filter((f) => !existingNames.has(f.name));
+      return [...prev, ...unique];
+    });
   };
 
-  const removeItem = (id: string) => {
-    if (items.length <= 1) return;
-    setItems((prev) => prev.filter((i) => i.id !== id));
+  const removeFile = (name: string) => {
+    setFiles((prev) => prev.filter((f) => f.name !== name));
     setResults((prev) => {
       const next = { ...prev };
-      delete next[id];
+      delete next[name];
+      return next;
+    });
+    setFileStatuses((prev) => {
+      const next = { ...prev };
+      delete next[name];
       return next;
     });
   };
 
-  const updateItemText = (id: string, text: string) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, text } : i)));
-  };
-
-  const handleBatchTranslate = async () => {
-    const validItems = items.filter((i) => i.text.trim());
-    if (validItems.length === 0) return;
+  const handleTranslate = async () => {
+    if (files.length === 0 || !selectedLanguage) return;
     setLoading(true);
     setResults({});
     setError('');
+
+    const initialStatuses: Record<string, FileStatus> = {};
+    files.forEach((f) => { initialStatuses[f.name] = 'translating'; });
+    setFileStatuses(initialStatuses);
+
+    const translateOne = async (file: File) => {
+      const formData = new FormData();
+      formData.append('pdf', file);
+      formData.append('language', selectedLanguage.name);
+
+      try {
+        const res = await api.post('/api/translate/pdf', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        setFileStatuses((prev) => ({ ...prev, [file.name]: 'done' }));
+        setResults((prev) => ({
+          ...prev,
+          [file.name]: {
+            translatedText: res.data.translatedText,
+          },
+        }));
+      } catch {
+        setFileStatuses((prev) => ({ ...prev, [file.name]: 'error' }));
+      }
+    };
+
     try {
-      const res = await api.post('/api/translate/batch', {
-        items: validItems.map((i) => ({ id: i.id, text: i.text.trim() })),
-        targetLanguage: selectedLanguage?.name || 'French',
-        ...(gradeLevel.trim() ? { gradeLevel: gradeLevel.trim() } : {}),
-      });
-      setResults(res.data.results || {});
+      await Promise.all(files.map(translateOne));
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Batch translation failed');
+      setError(err.message || 'Translation failed');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTranslatePdf = async () => {
-    if (!file) return;
-    setLoading(true);
-    setPdfResult('');
-    setError('');
-    const formData = new FormData();
-    formData.append('pdf', file);
-    formData.append('targetLanguage', selectedLanguage?.name || 'French');
-    try {
-      const res = await api.post('/api/translate/pdf', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setPdfResult(res.data.translatedContent || 'PDF translated successfully.');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'PDF translation failed');
-    } finally {
-      setLoading(false);
+  const handleDownloadPdf = useCallback(async (fileName: string, result: TranslationResult) => {
+    const langName = selectedLanguage?.name || 'Translation';
+    const fontFamily = getFontFamily(selectedLanguage?.code || 'en');
+    const blob = await pdf(
+      <TranslationPDF
+        fileName={fileName}
+        targetLanguage={langName}
+        translatedText={result.translatedText}
+        originalText={result.originalText}
+        fontFamily={fontFamily}
+      />
+    ).toBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileName.replace(/\.pdf$/i, '')}-${langName.toLowerCase()}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [selectedLanguage]);
+
+  const canTranslate = files.length > 0 && !!selectedLanguage && !loading;
+
+  const statusLabel = (status: FileStatus) => {
+    switch (status) {
+      case 'extracting': return 'Extracting text…';
+      case 'translating': return 'Translating…';
+      default: return '';
     }
   };
-
-  const handleTranslate = () => {
-    if (mode === 'batch') handleBatchTranslate();
-    else handleTranslatePdf();
-  };
-
-  const canTranslate =
-    mode === 'batch'
-      ? items.some((i) => i.text.trim()) && !!selectedLanguage
-      : file !== null && !!selectedLanguage;
 
   return (
     <div>
-      {/* Section header */}
+      {/* Header */}
       <div className="mb-8">
         <h2 className="font-display text-4xl text-zinc-900 text-balance">
           Translation Studio
         </h2>
         <p className="text-zinc-400 mt-2 text-base text-pretty max-w-xl">
-          Translate educational content across languages.
-          Supports batch text and PDF documents.
+          Batch translate PDF documents across languages.
         </p>
       </div>
 
-      {/* Controls bar */}
+      {/* Controls */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         {/* Language selector */}
         <div className="relative" ref={dropdownRef}>
           <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
+            onClick={() => setDropdownOpen(prev => !prev)}
             className="flex items-center gap-2 bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-600 hover:border-zinc-300 transition-colors min-w-[180px] justify-between"
           >
             <span className="flex items-center gap-2">
@@ -176,17 +206,30 @@ export function TranslationStudio() {
           </button>
 
           {dropdownOpen && (
-            <div className="absolute z-20 top-full mt-1 w-full bg-white border border-zinc-200 rounded-lg shadow-lg shadow-zinc-100 overflow-hidden">
+            <div className="absolute z-20 top-full mt-1 w-full min-w-[240px] bg-white border border-zinc-200 rounded-lg shadow-lg shadow-zinc-100 overflow-hidden">
+              <div className="p-2 border-b border-zinc-100">
+                <input
+                  type="text"
+                  value={langSearch}
+                  onChange={(e) => setLangSearch(e.target.value)}
+                  placeholder="Search languages..."
+                  className="w-full px-2 py-1.5 text-sm border border-zinc-200 rounded focus:outline-none focus:border-zinc-400"
+                  autoFocus
+                />
+              </div>
               <div className="max-h-60 overflow-y-auto py-1">
-                {languages.length === 0 ? (
-                  <p className="px-4 py-3 text-xs text-zinc-400">No languages available</p>
+                {filteredLanguages.length === 0 ? (
+                  <p className="px-4 py-3 text-xs text-zinc-400">
+                    {languages.length === 0 ? 'No languages available' : 'No matches found'}
+                  </p>
                 ) : (
-                  languages.map((lang) => (
+                  filteredLanguages.map((lang) => (
                     <button
                       key={lang.code}
                       onClick={() => {
                         setTargetLang(lang.code);
                         setDropdownOpen(false);
+                        setLangSearch('');
                       }}
                       className={cn(
                         'w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between',
@@ -205,54 +248,24 @@ export function TranslationStudio() {
           )}
         </div>
 
-        {/* Mode toggle */}
-        <div className="flex items-center gap-1 p-1">
-          <button
-            onClick={() => setMode('batch')}
-            className={cn(
-              'px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5',
-              mode === 'batch'
-                ? 'bg-zinc-100 text-zinc-900'
-                : 'text-zinc-400 hover:text-zinc-600'
-            )}
-          >
-            <Languages className="size-3.5" />
-            Batch
-          </button>
-          <button
-            onClick={() => setMode('pdf')}
-            className={cn(
-              'px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5',
-              mode === 'pdf'
-                ? 'bg-zinc-100 text-zinc-900'
-                : 'text-zinc-400 hover:text-zinc-600'
-            )}
-          >
-            <FileUp className="size-3.5" />
-            PDF
-          </button>
-        </div>
-
-        {/* Grade level (optional) */}
-        {mode === 'batch' && (
-          <input
-            type="text"
-            value={gradeLevel}
-            onChange={(e) => setGradeLevel(e.target.value)}
-            placeholder="Grade level (optional)"
-            className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-700 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-400 w-44"
-          />
-        )}
+        {/* Grade level */}
+        <input
+          type="text"
+          value={gradeLevel}
+          onChange={(e) => setGradeLevel(e.target.value)}
+          placeholder="Grade level (optional)"
+          className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-700 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-400 w-44"
+        />
 
         <div className="flex-1" />
 
-        {/* Translate button */}
+        {/* Translate */}
         <button
           onClick={handleTranslate}
-          disabled={!canTranslate || loading}
+          disabled={!canTranslate}
           className={cn(
             'flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors',
-            canTranslate && !loading
+            canTranslate
               ? 'bg-zinc-900 text-white hover:bg-zinc-800'
               : 'bg-zinc-100 text-zinc-300 cursor-not-allowed'
           )}
@@ -264,14 +277,14 @@ export function TranslationStudio() {
             </>
           ) : (
             <>
-              Translate
+              Translate {files.length > 0 && `(${files.length})`}
               <ArrowRight className="size-4" />
             </>
           )}
         </button>
       </div>
 
-      {/* Error display */}
+      {/* Error */}
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center justify-between">
           <p className="text-red-600 text-sm">{error}</p>
@@ -281,153 +294,152 @@ export function TranslationStudio() {
         </div>
       )}
 
-      {/* Main content area */}
-      {mode === 'batch' ? (
-        <div className="flex flex-col gap-3">
-          {/* Batch items */}
-          {items.map((item, idx) => (
-            <div
-              key={item.id}
-              className="bg-white border border-zinc-200 rounded-lg overflow-hidden"
-            >
-              <div className="px-4 py-2.5 border-b border-zinc-100 flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-400 tabular-nums">
-                  Item {idx + 1}
-                </span>
-                <div className="flex items-center gap-2">
-                  {results[item.id] && (
-                    <CheckCircle2 className="size-3.5 text-emerald-500" />
-                  )}
-                  {items.length > 1 && (
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="text-zinc-300 hover:text-red-400 transition-colors p-1"
-                      aria-label={`Remove item ${idx + 1}`}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className={cn('grid gap-0', results[item.id] ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1')}>
-                {/* Source text */}
-                <div className={cn(results[item.id] && 'md:border-r md:border-zinc-100')}>
-                  <textarea
-                    value={item.text}
-                    onChange={(e) => updateItemText(item.id, e.target.value)}
-                    placeholder="Enter text to translate…"
-                    rows={3}
-                    className="w-full bg-transparent p-4 text-zinc-800 text-sm leading-relaxed resize-none placeholder:text-zinc-300 focus:outline-none"
-                  />
-                </div>
-
-                {/* Result */}
-                {results[item.id] && (
-                  <div className="p-4 border-t border-zinc-100 md:border-t-0 bg-zinc-50/50">
-                    <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider mb-1.5 block">
-                      {selectedLanguage?.name}
-                    </span>
-                    <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-wrap text-pretty">
-                      {results[item.id].translatedText}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Add item button */}
+      {/* Drop zone */}
+      {files.length === 0 && (
+        <div
+          className={cn(
+            'border border-dashed rounded-lg p-12 flex flex-col items-center justify-center transition-colors',
+            isDragging
+              ? 'border-zinc-400 bg-zinc-50'
+              : 'border-zinc-200 bg-white'
+          )}
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
+          onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragging(false);
+            addFiles(e.dataTransfer.files);
+          }}
+        >
+          <div className="size-12 rounded-lg bg-zinc-50 flex items-center justify-center mb-3">
+            <FileUp className="size-6 text-zinc-300" />
+          </div>
+          <p className="text-zinc-400 text-sm mb-1">Drop PDF files here or</p>
           <button
-            onClick={addItem}
-            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg border border-dashed border-zinc-200 text-zinc-400 text-sm hover:border-zinc-300 hover:text-zinc-500 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-zinc-900 text-sm font-medium hover:text-zinc-600 transition-colors"
           >
-            <Plus className="size-4" />
-            Add item
+            browse files
           </button>
-        </div>
-      ) : (
-        /* PDF Mode */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Upload area */}
-          <div
-            className="bg-white border border-zinc-200 rounded-lg overflow-hidden flex flex-col"
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const droppedFile = e.dataTransfer.files[0];
-              if (droppedFile?.type === 'application/pdf') setFile(droppedFile);
+          <p className="text-zinc-300 text-xs mt-2">Upload one or more PDFs to translate</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) addFiles(e.target.files);
+              e.target.value = '';
             }}
-          >
-            <div className="px-4 py-2.5 border-b border-zinc-100">
-              <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Upload PDF</span>
-            </div>
-            <div className="flex-1 min-h-[280px] flex flex-col items-center justify-center p-8">
-              {file ? (
-                <div className="text-center">
-                  <div className="size-14 rounded-xl bg-zinc-50 flex items-center justify-center mx-auto mb-3">
-                    <FileText className="size-7 text-zinc-400" />
-                  </div>
-                  <p className="text-zinc-800 font-medium text-sm mb-0.5 truncate max-w-[260px]">{file.name}</p>
-                  <p className="text-zinc-400 text-xs tabular-nums mb-3">
-                    {(file.size / 1024).toFixed(1)} KB
-                  </p>
-                  <button
-                    onClick={() => setFile(null)}
-                    className="text-xs text-zinc-400 hover:text-red-500 transition-colors flex items-center gap-1 mx-auto"
-                  >
-                    <X className="size-3" />
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <div className="size-14 rounded-xl bg-zinc-50 flex items-center justify-center mx-auto mb-3 border border-dashed border-zinc-200">
-                    <FileUp className="size-7 text-zinc-300" />
-                  </div>
-                  <p className="text-zinc-400 text-sm mb-1">Drop a PDF here or</p>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-zinc-900 text-sm font-medium hover:text-zinc-600 transition-colors"
-                  >
-                    browse files
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="application/pdf"
-                    className="hidden"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Result */}
-          <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden flex flex-col">
-            <div className="px-4 py-2.5 border-b border-zinc-100">
-              <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                {selectedLanguage?.name || 'Translation'}
-              </span>
-            </div>
-            <div className="flex-1 min-h-[280px] p-4 overflow-y-auto">
-              {pdfResult ? (
-                <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-wrap text-pretty">
-                  {pdfResult}
-                </p>
-              ) : (
-                <p className="text-zinc-300 text-sm italic">
-                  {loading ? 'Translating your document…' : 'Translated content will appear here'}
-                </p>
-              )}
-            </div>
-          </div>
+          />
         </div>
       )}
 
-      {/* Languages info */}
+      {/* File list */}
+      {files.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {files.map((file) => {
+            const result = results[file.name];
+            const status = fileStatuses[file.name] || 'idle';
+            const isProcessing = status === 'extracting' || status === 'translating';
+            return (
+              <div
+                key={file.name}
+                className="bg-white border border-zinc-200 rounded-lg overflow-hidden"
+              >
+                {/* File header */}
+                <div className="px-4 py-2.5 flex items-center gap-3">
+                  <FileText className="size-4 text-zinc-300 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-zinc-800 font-medium truncate">{file.name}</p>
+                    <p className="text-xs text-zinc-400 tabular-nums">
+                      {(file.size / 1024).toFixed(1)} KB
+                      {isProcessing && (
+                        <span className="ml-2 text-zinc-500">{statusLabel(status)}</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {result && (
+                      <>
+                        <CheckCircle2 className="size-3.5 text-emerald-500" />
+                        <button
+                          onClick={() => setPdfPreview({ fileName: file.name, result })}
+                          className="text-zinc-400 hover:text-zinc-600 transition-colors p-1"
+                          aria-label={`View ${file.name} translation as PDF`}
+                        >
+                          <Eye className="size-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDownloadPdf(file.name, result)}
+                          className="text-zinc-400 hover:text-zinc-600 transition-colors p-1"
+                          aria-label={`Download ${file.name} translation`}
+                        >
+                          <Download className="size-3.5" />
+                        </button>
+                      </>
+                    )}
+                    {isProcessing && (
+                      <Loader2 className="size-3.5 text-zinc-300 animate-spin" />
+                    )}
+                    <button
+                      onClick={() => removeFile(file.name)}
+                      className="text-zinc-300 hover:text-red-400 transition-colors p-1"
+                      aria-label={`Remove ${file.name}`}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Translation result */}
+                {result && (
+                  <div className="px-4 py-3 border-t border-zinc-100 bg-zinc-50/50">
+                    <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider mb-1.5 block">
+                      {selectedLanguage?.name}
+                    </span>
+                    <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-wrap text-pretty line-clamp-6">
+                      {result.translatedText}
+                    </p>
+                    {result.translatedText.split('\n').length > 6 && (
+                      <button
+                        onClick={() => setPdfPreview({ fileName: file.name, result })}
+                        className="text-xs text-zinc-400 hover:text-zinc-600 mt-2 transition-colors"
+                      >
+                        View full translation →
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Add more */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg border border-dashed border-zinc-200 text-zinc-400 text-sm hover:border-zinc-300 hover:text-zinc-500 transition-colors"
+          >
+            <FileUp className="size-3.5" />
+            Add more PDFs
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) addFiles(e.target.files);
+              e.target.value = '';
+            }}
+          />
+        </div>
+      )}
+
+      {/* Supported languages */}
       {languages.length > 0 && (
         <div className="mt-10">
           <h3 className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-3">
@@ -449,6 +461,60 @@ export function TranslationStudio() {
                 <span className="ml-1 font-mono text-[10px] opacity-50">{lang.code}</span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* PDF Viewer Modal */}
+      {pdfPreview && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm p-6">
+          <div className="w-full max-w-5xl h-[85dvh] bg-white border border-zinc-200 rounded-xl overflow-hidden flex flex-col shadow-xl shadow-zinc-200/50">
+            {/* Modal header */}
+            <div className="px-5 py-3 border-b border-zinc-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <FileText className="size-4 text-zinc-400 shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-zinc-900 font-medium text-sm truncate">
+                    {pdfPreview.fileName}
+                  </h3>
+                  <p className="text-zinc-400 text-xs">{selectedLanguage?.name} translation</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleDownloadPdf(pdfPreview.fileName, pdfPreview.result)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-900 text-white hover:bg-zinc-800 transition-colors"
+                >
+                  <Download className="size-3.5" />
+                  Download
+                </button>
+                <button
+                  onClick={() => setPdfPreview(null)}
+                  className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-600 transition-colors"
+                  aria-label="Close PDF viewer"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* PDF embed */}
+            <div className="flex-1 min-h-0 bg-zinc-50">
+              <PDFViewer
+                width="100%"
+                height="100%"
+                showToolbar={false}
+                style={{ border: 'none' }}
+              >
+                <TranslationPDF
+                  fileName={pdfPreview.fileName}
+                  targetLanguage={selectedLanguage?.name || 'Translation'}
+                  translatedText={pdfPreview.result.translatedText}
+                  originalText={pdfPreview.result.originalText}
+                  fontFamily={getFontFamily(selectedLanguage?.code || 'en')}
+                />
+              </PDFViewer>
+            </div>
           </div>
         </div>
       )}

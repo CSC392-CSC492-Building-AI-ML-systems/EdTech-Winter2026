@@ -130,6 +130,9 @@ async function orchestrateGeneration(
     }),
     system: GENERATION_SYSTEM,
     prompt: `${baseContext(subject, topic, gradeLevel)}\n\nGenerate the complete self-assessment script now.`,
+    providerOptions: {
+      openai: { reasoningEffort: 'low' },
+    },
   });
 
   if (!output) throw new Error("Failed to generate template");
@@ -140,20 +143,33 @@ async function orchestrateGeneration(
     self_review: output.self_review,
   };
 
-  const { output: validation } = await generateText({
+  // Fire-and-forget background validation
+  validateInBackground(subject, topic, gradeLevel, sections, modelId);
+
+  return sections;
+}
+
+function validateInBackground(
+  subject: string,
+  topic: string,
+  gradeLevel: string,
+  sections: TemplateSections,
+  modelId: string,
+) {
+  generateText({
     model: openai(modelId),
     output: Output.object({
       schema: validationSchema,
     }),
     system: VALIDATION_SYSTEM,
     prompt: `Subject: ${subject}\nTopic: ${topic}\nGrade Level: ${gradeLevel}\n\nINTRODUCTION:\n${sections.introduction}\n\nMODEL SELF-ASSESSMENT:\n${sections.model_assessment}\n\nSELF-REVIEW:\n${sections.self_review}`,
+  }).then(({ output: validation }) => {
+    if (validation && !validation.valid) {
+      console.warn(`Template validation issues [${subject}/${topic}]:`, validation.issues);
+    }
+  }).catch((err) => {
+    console.error('Background validation failed:', err);
   });
-
-  if (validation && !validation.valid) {
-    console.warn("Template validation issues:", validation.issues);
-  }
-
-  return sections;
 }
 
 const SECTION_ORDER: Array<keyof TemplateSections> = [

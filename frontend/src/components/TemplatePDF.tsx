@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import '../lib/pdfFonts';
 
 const s = StyleSheet.create({
   page: {
@@ -6,14 +7,14 @@ const s = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 72,
     paddingHorizontal: 56,
-    fontFamily: 'Helvetica',
+    fontFamily: 'Noto Sans',
     color: '#1a1a1a',
     fontSize: 11,
     lineHeight: 1.7,
   },
   brand: {
     fontSize: 9,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: '#b45309',
     letterSpacing: 2,
     textTransform: 'uppercase',
@@ -21,9 +22,9 @@ const s = StyleSheet.create({
   },
   title: {
     fontSize: 26,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: '#111111',
-    marginBottom: 4,
+    marginBottom: 12,
   },
   subtitle: {
     fontSize: 12,
@@ -47,11 +48,11 @@ const s = StyleSheet.create({
   metaValue: {
     fontSize: 11,
     color: '#404040',
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
   },
   sectionTitle: {
     fontSize: 13,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: '#111111',
     marginBottom: 8,
     marginTop: 24,
@@ -130,17 +131,14 @@ export function TemplatePDF({ template }: { template: TemplateData }) {
           </View>
         </View>
 
-        <Text style={s.sectionTitle}>Introduction</Text>
         <Text style={s.body}>{template.sections.introduction}</Text>
 
         <View style={s.divider} />
 
-        <Text style={s.sectionTitle}>Model Self-Assessment</Text>
         <Text style={s.body}>{template.sections.model_assessment}</Text>
 
         <View style={s.divider} />
 
-        <Text style={s.sectionTitle}>Self-Review</Text>
         <Text style={s.body}>{template.sections.self_review}</Text>
 
         <View style={s.footer} fixed>
