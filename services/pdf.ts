@@ -93,10 +93,12 @@ function parseTextIntoBlocks(text: string): DocumentBlock[] {
 }
 
 function looksLikeTableRow(rawLine: string): boolean {
-  // Heuristic:
-  // 1. Has 2+ spaces or tabs between chunks
-  // 2. Not just a normal sentence with a couple spaces
-  return /\S(?:.*?)(\s{2,}|\t+)\S/.test(rawLine);
+  const cells = rawLine.trim().split(/\s{2,}|\t+/).filter(Boolean);
+  // Require at least 3 cells, or cells that are all short (under 30 chars)
+  // to avoid misclassifying normal sentences with extra spaces
+  if (cells.length < 2) return false;
+  const allShort = cells.every(cell => cell.length < 30);
+  return cells.length >= 3 || (cells.length >= 2 && allShort);
 }
 
 function mergeAdjacentParagraphs(blocks: DocumentBlock[]): DocumentBlock[] {
