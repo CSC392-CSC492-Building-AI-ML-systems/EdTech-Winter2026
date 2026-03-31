@@ -162,6 +162,23 @@ export const updateApiKey = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Nothing to update" } as ErrorResponse);
     }
 
+    // Validate scopes if provided
+    const VALID_SCOPES = ["read", "translate", "write"] as const;
+
+    if (scopes !== undefined) {
+      if (!Array.isArray(scopes) || scopes.length === 0) {
+        return res.status(400).json({ error: "scopes must be a non-empty array" } as ErrorResponse);
+      }
+
+      const invalidScopes = scopes.filter(s => !VALID_SCOPES.includes(s));
+
+      if (invalidScopes.length > 0) {
+        return res.status(400).json({
+          error: `Invalid scopes: ${invalidScopes.join(", ")}. Valid values are: ${VALID_SCOPES.join(", ")}`,
+        } as ErrorResponse);
+      }
+    }
+
     const [updated] = await db
       .update(api_keys)
       .set({ ...(label && { label }), ...(scopes && { scopes }) })
