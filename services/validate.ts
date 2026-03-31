@@ -61,7 +61,6 @@ export function checkStructure(
 export async function validateTranslation(
   original: string,
   translated: string,
-  targetLanguage: string
 ): Promise<ValidationResult> {
   // Back-translation and structural check can run in parallel
   const backTranslated = await backTranslate(translated, 'English');

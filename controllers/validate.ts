@@ -1,28 +1,44 @@
 // controllers/validate.ts
 import type { Request, Response } from 'express';
+import { extractTextFromPdf, deleteFile } from '../services/pdf.js';
 import { validateTranslation } from '../services/validate.js';
 
 export const validateTranslationHandler = async (
   req: Request,
   res: Response
 ) => {
-  const { original, translated, targetLanguage } = req.body;
+  const { targetLanguage } = req.body;
 
-  if (!original || typeof original !== 'string') {
-    return res.status(400).json({ error: 'original is required and must be a string' });
-  }
-  if (!translated || typeof translated !== 'string') {
-    return res.status(400).json({ error: 'translated is required and must be a string' });
-  }
   if (!targetLanguage || typeof targetLanguage !== 'string') {
     return res.status(400).json({ error: 'targetLanguage is required and must be a string' });
   }
 
+  const files = (req as any).files as Record<string, { path: string }[]> | undefined;
+  const originalFile = files?.['original']?.[0];
+  const translatedFile = files?.['translated']?.[0];
+
+  if (!originalFile) {
+    return res.status(400).json({ error: 'original PDF file is required' });
+  }
+  if (!translatedFile) {
+    return res.status(400).json({ error: 'translated PDF file is required' });
+  }
+
   try {
-    const result = await validateTranslation(original, translated, targetLanguage);
+    const [originalText, translatedText] = await Promise.all([
+      extractTextFromPdf(originalFile.path),
+      extractTextFromPdf(translatedFile.path),
+    ]);
+
+    const result = await validateTranslation(originalText, translatedText);
     return res.status(200).json(result);
   } catch (error) {
     console.error('Validation error:', error);
     return res.status(500).json({ error: 'Failed to validate translation' });
+  } finally {
+    await Promise.all([
+      deleteFile(originalFile.path),
+      deleteFile(translatedFile.path),
+    ]);
   }
 };

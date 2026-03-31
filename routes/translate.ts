@@ -7,7 +7,7 @@ import { validateTranslationHandler } from "../controllers/validate.js";
 const router = express.Router();
 
 router.get("/stat", getTranslationStats);
-router.post("/validate", validateTranslationHandler);
+router.post("/validate", uploadPdf.fields([{ name: 'original', maxCount: 1 }, { name: 'translated', maxCount: 1 }]), validateTranslationHandler);
 router.post("/batch", batchTranslate);
 router.post("/batch", uploadPdf.array("pdfs"), batchTranslate);
 router.post("/pdf", uploadPdf.single("pdf"), uploadPdfFile);
