@@ -64,10 +64,8 @@ export async function validateTranslation(
   targetLanguage: string
 ): Promise<ValidationResult> {
   // Back-translation and structural check can run in parallel
-  const [backTranslated, structuralChecks] = await Promise.all([
-    backTranslate(translated, 'English'),
-    Promise.resolve(checkStructure(original, translated)),
-  ]);
+  const backTranslated = await backTranslate(translated, 'English');
+  const structuralChecks = checkStructure(original, translated);
 
   // Score how similar the back-translation is to the original
   const similarityResult = await scoreSimilarity(original, backTranslated);
