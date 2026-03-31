@@ -30,7 +30,14 @@ export const validateTranslationHandler = async (
       extractTextFromPdf(translatedFile.path),
     ]);
 
-    const result = await validateTranslation(originalText, translatedText);
+    if (!originalText.trim()) {
+        return res.status(422).json({ error: 'Could not extract text from original PDF. The file may be image-based or empty.' });
+    }
+    if (!translatedText.trim()) {
+    return res.status(422).json({ error: 'Could not extract text from translated PDF. The file may be image-based or empty.' });
+    }
+
+    const result = await validateTranslation(originalText, translatedText, targetLanguage);
     return res.status(200).json(result);
   } catch (error) {
     console.error('Validation error:', error);

@@ -19,7 +19,7 @@ export async function backTranslate(
   translatedText: string,
   sourceLanguage: string = 'English'
 ): Promise<string> {
-  const prompt = `Translate the following text back to ${sourceLanguage}. Provide ONLY the translated text, no explanations.
+  const prompt = `Translate the following ${sourceLanguage} text back to English. Provide ONLY the translated text, no explanations.
 
 TEXT TO TRANSLATE:
 ${translatedText}`;
@@ -61,9 +61,10 @@ export function checkStructure(
 export async function validateTranslation(
   original: string,
   translated: string,
+  targetLanguage: string,
 ): Promise<ValidationResult> {
   // Back-translation and structural check can run in parallel
-  const backTranslated = await backTranslate(translated, 'English');
+  const backTranslated = await backTranslate(translated, targetLanguage);
   const structuralChecks = checkStructure(original, translated);
 
   // Score how similar the back-translation is to the original
