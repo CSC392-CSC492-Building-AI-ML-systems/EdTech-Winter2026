@@ -16,6 +16,109 @@ export async function extractTextFromPdf(filePath: string): Promise<string> {
     return data.text;
 }
 
+export async function extractStructuredTextFromPdf(filePath: string): Promise<DocumentBlock[]> {
+  const rawText = await extractTextFromPdf(filePath);
+  return parseTextIntoBlocks(rawText);
+}
+
+function parseTextIntoBlocks(text: string): DocumentBlock[] {
+  const lines = text.split('\n');
+  const blocks: DocumentBlock[] = [];
+
+  for (const rawLine of lines) {
+    const indent = rawLine.match(/^(\s*)/)?.[1].length ?? 0;
+    const line = rawLine.trim();
+
+    if (!line) {
+      blocks.push({ type: 'blank', content: '', indent: 0 });
+      continue;
+    }
+
+    // Detect bullet lists and preserve the exact bullet marker
+    const bulletMatch = line.match(/^([-*•–])\s+(.*)$/);
+    if (bulletMatch) {
+      blocks.push({
+        type: 'bullet_list',
+        marker: bulletMatch[1],
+        content: bulletMatch[2],
+        indent
+      });
+      continue;
+    }
+
+    // Detect numbered lists and preserve the exact numbering marker
+    const numberedMatch = line.match(/^(\d+[.)])\s+(.*)$/);
+    if (numberedMatch) {
+      blocks.push({
+        type: 'numbered_list',
+        marker: numberedMatch[1],
+        content: numberedMatch[2],
+        indent
+      });
+      continue;
+    }
+
+    // Detect simple table rows:
+    // if the raw line contains chunks separated by 2+ spaces or tabs
+    const tableCells = rawLine.trim().split(/\s{2,}|\t+/).filter(Boolean);
+    if (tableCells.length >= 2 && looksLikeTableRow(rawLine)) {
+      blocks.push({
+        type: 'table_row',
+        content: tableCells.join(' | '),
+        cells: tableCells,
+        indent
+      });
+      continue;
+    }
+
+    // Detect headings
+    const isShort = line.length < 80;
+    const isAllCaps = line === line.toUpperCase() && /[A-Z]/.test(line);
+    const noEndPunctuation =
+      !line.endsWith('.') &&
+      !line.endsWith(',') &&
+      !line.endsWith(':') &&
+      !line.endsWith(';');
+
+    if (isShort && (isAllCaps || (noEndPunctuation && line.length < 50))) {
+      blocks.push({ type: 'heading', content: line, indent: 0 });
+      continue;
+    }
+
+    // Everything else is a paragraph
+    blocks.push({ type: 'paragraph', content: line, indent });
+  }
+
+  return mergeAdjacentParagraphs(blocks);
+}
+
+function looksLikeTableRow(rawLine: string): boolean {
+  // Heuristic:
+  // 1. Has 2+ spaces or tabs between chunks
+  // 2. Not just a normal sentence with a couple spaces
+  return /\S(?:.*?)(\s{2,}|\t+)\S/.test(rawLine);
+}
+
+function mergeAdjacentParagraphs(blocks: DocumentBlock[]): DocumentBlock[] {
+  const merged: DocumentBlock[] = [];
+
+  for (const block of blocks) {
+    const last = merged[merged.length - 1];
+
+    if (
+      block.type === 'paragraph' &&
+      last?.type === 'paragraph' &&
+      block.indent === last.indent
+    ) {
+      last.content += ' ' + block.content;
+    } else {
+      merged.push({ ...block });
+    }
+  }
+
+  return merged;
+}
+
 export async function deleteFile(filePath: string): Promise<void> {
     if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
