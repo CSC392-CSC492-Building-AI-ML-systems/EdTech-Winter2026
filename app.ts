@@ -55,15 +55,30 @@ app.use("/api/translation-log", translationLogRouter);
 app.use("/api/template-generation-log", templateGenerationLogRouter);
 
 if (fs.existsSync(frontendIndexPath)) {
-    app.use(express.static(frontendDistPath));
+        app.use(express.static(frontendDistPath));
 
-    app.get(/^(?!\/api).*/, (_req, res) => {
-        res.sendFile(frontendIndexPath);
-    });
+        // Send SPA shell for all non-API routes (e.g. /login, /dashboard).
+        app.get(/^(?!\/api).*/, (_req, res) => {
+                res.sendFile(frontendIndexPath);
+        });
 } else {
-    app.get('/', (_req, res) => {
-        res.status(404).send('Frontend build not found. Run "npm run build:frontend" from the project root.');
-    });
+        app.get(/^(?!\/api).*/, (_req, res) => {
+                res.status(503).type('html').send(`
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Frontend Not Built</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; margin: 2rem; line-height: 1.5;">
+        <h1>Frontend build not found</h1>
+        <p>This backend serves the frontend from <code>frontend/dist</code> in production mode.</p>
+        <p>Run <code>npm run build:frontend</code> from the project root, then restart the backend.</p>
+        <p>For development UI, run <code>npm run dev</code> inside the <code>frontend</code> folder and open <a href="http://localhost:5173">http://localhost:5173</a>.</p>
+    </body>
+</html>`);
+        });
 }
 
 async function start() {
