@@ -64,6 +64,7 @@ async function translateBlocks(
   return Promise.all(blocks.map((block) => translateBlock(block, targetLanguage)));
 }
 
+
 export const uploadPdfFile = async (req: Request, res: Response) => {
   const filePath = req.file?.path;
 
@@ -81,11 +82,7 @@ export const uploadPdfFile = async (req: Request, res: Response) => {
         }
 
         const start = Date.now();
-        const { tokenCount } = await translateContent(extractedText, targetLanguage);
-        const latencyMs = Date.now() - start;
-        
        
-
         if (!extractedText.trim()) {
           return res.status(422).json({
             error: "Could not extract text from PDF. The file may be image-based or empty."
@@ -94,6 +91,8 @@ export const uploadPdfFile = async (req: Request, res: Response) => {
 
         const translatedBlocks = await translateBlocks(blocks, targetLanguage);
         const translatedText = blocksToText(translatedBlocks);
+        const { tokenCount } = await translateContent(extractedText, targetLanguage);
+        const latencyMs = Date.now() - start;
 
         if (req.apiKey) {
             try {
@@ -163,6 +162,29 @@ export const uploadPdfFileStream = async (req: Request, res: Response) => {
       });
 
       sendEvent('status', { step: 'translating' });
+        const start = Date.now();
+        let fullTranslation = '';
+        const { tokenCount } = await translateContentStream(extractedText, targetLanguage, (token) => {
+            fullTranslation += token;
+            sendEvent('token', { token });
+        });
+        const latencyMs = Date.now() - start;
+
+        if (req.apiKey) {
+            try {
+                await logTranslation({
+                    userId: req.apiKey.user_id,
+                    sourceText: extractedText,
+                    translatedText: fullTranslation || undefined,
+                    targetLanguage,
+                    model: DEFAULT_MODEL,
+                    tokenCount: tokenCount ?? undefined,
+                    latencyMs,
+                });
+            } catch (logErr) {
+                console.error("Failed to log streamed PDF translation:", logErr);
+            }
+        }
 
       const translatedBlocks = await translateBlocks(blocks, targetLanguage);
       const translatedText = blocksToText(translatedBlocks);
@@ -170,30 +192,6 @@ export const uploadPdfFileStream = async (req: Request, res: Response) => {
       sendEvent("translated", {
         translatedText
       });
-
-      const start = Date.now();
-      let fullTranslation = '';
-      const { tokenCount } = await translateContentStream(extractedText, targetLanguage, (token) => {
-          fullTranslation += token;
-          sendEvent('token', { token });
-      });
-      const latencyMs = Date.now() - start;
-
-      if (req.apiKey) {
-          try {
-              await logTranslation({
-                  userId: req.apiKey.user_id,
-                  sourceText: extractedText,
-                  translatedText: fullTranslation || undefined,
-                  targetLanguage,
-                  model: DEFAULT_MODEL,
-                  tokenCount: tokenCount ?? undefined,
-                  latencyMs,
-              });
-          } catch (logErr) {
-              console.error("Failed to log streamed PDF translation:", logErr);
-          }
-      }
 
       sendEvent('complete', {});
       res.end();
