@@ -54,18 +54,6 @@ app.use("/api/templates", templatesRouter);
 app.use("/api/translation-log", translationLogRouter);
 app.use("/api/template-generation-log", templateGenerationLogRouter);
 
-if (fs.existsSync(frontendIndexPath)) {
-    app.use(express.static(frontendDistPath));
-
-    app.get(/^(?!\/api).*/, (_req, res) => {
-        res.sendFile(frontendIndexPath);
-    });
-} else {
-    app.get('/', (_req, res) => {
-        res.status(404).send('Frontend build not found. Run "npm run build:frontend" from the project root.');
-    });
-}
-
 async function start() {
     const termCount = await loadGlossaryCache();
     console.log(`Glossary cache loaded: ${termCount} terms`);
