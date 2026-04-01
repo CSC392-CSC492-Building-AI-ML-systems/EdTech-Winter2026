@@ -143,14 +143,20 @@ async function fetchWorksheetStats() {
         .where(gte(templates.createdAt, todayStart));
     const generatedToday = todayRow?.total ?? 0;
 
-    const bySubject = await db.select({ subject: templates.subject, count: count() })
+    const bySubject = await db.select({
+            subject: sql<string>`MAX(${templates.subject})`,
+            count: count(),
+        })
         .from(templates)
-        .groupBy(templates.subject)
+        .groupBy(sql`LOWER(${templates.subject})`)
         .orderBy(sql`count(*) desc`);
 
-    const byGradeLevel = await db.select({ gradeLevel: templates.gradeLevel, count: count() })
+    const byGradeLevel = await db.select({
+            gradeLevel: sql<string>`MAX(${templates.gradeLevel})`,
+            count: count(),
+        })
         .from(templates)
-        .groupBy(templates.gradeLevel)
+        .groupBy(sql`LOWER(${templates.gradeLevel})`)
         .orderBy(sql`count(*) desc`);
 
     return { totalGenerated, generatedToday, bySubject, byGradeLevel };
