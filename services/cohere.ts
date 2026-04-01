@@ -182,5 +182,48 @@ export async function translateBatch(
   return results;
 }
 
+export async function scoreSimilarity(
+  original: string,
+  backTranslated: string,
+): Promise<{ score: number; reasoning: string } | null> {
+  const prompt = `You are evaluating translation quality. You will be given an original text and a back-translated version of it (translated to another language, then back to the original language). A perfect round-trip translation would produce text identical in meaning to the original.
+
+Compare the two texts and respond with ONLY a JSON object in this exact format, no other text:
+{
+  "score": <number between 0.0 and 1.0>,
+  "reasoning": "<one sentence explaining the score>"
+}
+
+Scoring guide:
+- 0.9 to 1.0: meaning is fully preserved, only trivial wording differences
+- 0.7 to 0.9: meaning mostly preserved, minor nuances lost
+- 0.5 to 0.7: meaning partially preserved, some key ideas altered
+- below 0.5: significant meaning lost or distorted
+
+ORIGINAL TEXT:
+${original}
+
+BACK-TRANSLATED TEXT:
+${backTranslated}`;
+
+  try {
+    const response = await openai.responses.create({
+      model: 'gpt-4o-mini',
+      input: prompt,
+    });
+
+    const text = response.output_text;
+    if (!text) return null;
+
+    const cleaned = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned) as { score: number; reasoning: string };
+    parsed.score = Math.min(1, Math.max(0, parsed.score));
+    return parsed;
+  } catch (error) {
+    console.error('Failed to parse similarity score:', error);
+    return null;
+  }
+}
+
 export { cohere };
 export default cohere;
