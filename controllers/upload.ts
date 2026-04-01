@@ -1,6 +1,9 @@
 import type { Request, Response } from "express";
 import { extractTextFromPdf, deleteFile } from "../services/pdf.js";
 import { translateContent, translateContentStream } from "../services/cohere.js";
+import { logTranslation } from "../services/translation_log.js";
+
+const DEFAULT_MODEL = "command-a-translate-08-2025";
 
 export const uploadPdfFile = async (req: Request, res: Response) => {
     const filePath = req.file?.path;
@@ -17,7 +20,25 @@ export const uploadPdfFile = async (req: Request, res: Response) => {
             return res.status(422).json({ error: "Could not extract text from PDF. The file may be image-based or empty." });
         }
 
-        const translatedText = await translateContent(extractedText, targetLanguage);
+        const start = Date.now();
+        const { text: translatedText, tokenCount } = await translateContent(extractedText, targetLanguage);
+        const latencyMs = Date.now() - start;
+
+        if (req.apiKey) {
+            try {
+                await logTranslation({
+                    userId: req.apiKey.user_id,
+                    sourceText: extractedText,
+                    translatedText: translatedText ?? undefined,
+                    targetLanguage,
+                    model: DEFAULT_MODEL,
+                    tokenCount: tokenCount ?? undefined,
+                    latencyMs,
+                });
+            } catch (logErr) {
+                console.error("Failed to log PDF translation:", logErr);
+            }
+        }
 
         return res.status(200).json({
             originalName: req.file.originalname,
@@ -70,9 +91,29 @@ export const uploadPdfFileStream = async (req: Request, res: Response) => {
 
         sendEvent('status', { step: 'translating' });
 
-        await translateContentStream(extractedText, targetLanguage, (token) => {
+        const start = Date.now();
+        let fullTranslation = '';
+        const { tokenCount } = await translateContentStream(extractedText, targetLanguage, (token) => {
+            fullTranslation += token;
             sendEvent('token', { token });
         });
+        const latencyMs = Date.now() - start;
+
+        if (req.apiKey) {
+            try {
+                await logTranslation({
+                    userId: req.apiKey.user_id,
+                    sourceText: extractedText,
+                    translatedText: fullTranslation || undefined,
+                    targetLanguage,
+                    model: DEFAULT_MODEL,
+                    tokenCount: tokenCount ?? undefined,
+                    latencyMs,
+                });
+            } catch (logErr) {
+                console.error("Failed to log streamed PDF translation:", logErr);
+            }
+        }
 
         sendEvent('complete', {});
         res.end();
