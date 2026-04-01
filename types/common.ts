@@ -26,6 +26,12 @@ export interface TranslationStats {
     tokensByLanguage: { language: string; totalTokens: number }[];
     topUsers: { userId: number; translations: number }[];
     cacheHitRate: null;
+    worksheetStats: {
+        totalGenerated: number;
+        generatedToday: number;
+        bySubject: { subject: string; count: number }[];
+        byGradeLevel: { gradeLevel: string; count: number }[];
+    };
 }
 
 export interface LogTemplateGenerationParams {
