@@ -62,11 +62,11 @@ const config: Config = {
   smtpPass: process.env.SMTP_PASS || "",
   mailFrom: process.env.MAIL_FROM || process.env.SMTP_USER || "",
   bucket: {
-    name: process.env.bucketName || "",
-    endpoint: process.env.endpoint || "",
-    region: process.env.region || "auto",
-    accessKeyId: process.env.accessKeyId || "",
-    secretAccessKey: process.env.secretAccessKey || "",
+    name: process.env.BUCKET || "",
+    endpoint: process.env.ENDPOINT || "",
+    region: process.env.REGION || "auto",
+    accessKeyId: process.env.ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.SECRET_ACCESS_KEY || "",
   },
 };
 
