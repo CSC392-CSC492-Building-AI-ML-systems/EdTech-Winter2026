@@ -89,7 +89,7 @@ async function start() {
     const termCount = await loadGlossaryCache();
     console.log(`Glossary cache loaded: ${termCount} terms`);
 
-    app.listen(port, '0.0.0.0', () => {
+    app.listen(3000, '0.0.0.0', () => {
         console.log(`Server is running on port ${port}`);
     });
 }
