@@ -10,8 +10,10 @@ import type {
   AuthResponse,
   MeResponse,
 } from "../types/auth.js";
-import type { ErrorResponse } from "../types/response.js";
 import config from "../config/config.js";
+import { createEmailVerificationToken, consumeEmailVerificationToken } from "../services/email_verification.js";
+import { sendVerificationEmail } from "../services/mailer.js";
+import type { ErrorResponse } from "../types/response.js";
 
 const IS_PROD = config.nodeEnv === "production";
 
@@ -46,8 +48,8 @@ export const register = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await db
       .insert(users)
-      .values({ email, password: hashedPassword })
-      .returning({ id: users.id, email: users.email });
+      .values({ email, password: hashedPassword, emailVerified: false })
+      .returning({ id: users.id, email: users.email, emailVerified: users.emailVerified });
 
     if (!user[0]) {
       return res
@@ -59,8 +61,12 @@ export const register = async (req: Request, res: Response) => {
       expiresIn: "1h",
     });
 
-    res.cookie("token", token, COOKIE_OPTIONS);
-    const response: AuthResponse = { user: user[0] };
+    const rawToken = await createEmailVerificationToken(user[0].id);
+    const verifyUrl = `${config.appBaseUrl}/api/auth/verify-email?token=${encodeURIComponent(rawToken)}`;
+    await sendVerificationEmail(user[0].email, verifyUrl);
+
+    const response: AuthResponse = { user: user[0], message: "Registration successful. Please verify your email before logging in.",
+      verificationRequired: true };
     return res.status(201).json(response);
   } catch (error) {
     console.error("Error registering user:", error);
@@ -94,7 +100,14 @@ export const login = async (req: Request, res: Response) => {
         .json({ error: "Invalid credentials" } as ErrorResponse);
     }
 
-    const token = jwt.sign({ id: user[0]!.id }, config.jwtSecret, {
+    if (!user[0]!.emailVerified) {
+      return res.status(403).json({
+        error: "Email is not verified. Please check your inbox.",
+        verificationRequired: true,
+      } as ErrorResponse);
+    }
+
+    const token = jwt.sign({ id: user[0]!.id }, process.env.JWT_SECRET!, {
       expiresIn: "1h",
     });
 
@@ -136,7 +149,7 @@ export const me = async (req: Request, res: Response) => {
     const userId = decodedToken.id;
 
     const user = await db
-      .select({ id: users.id, email: users.email, createdAt: users.createdAt })
+      .select({ id: users.id, email: users.email, createdAt: users.createdAt, emailVerified: users.emailVerified })
       .from(users)
       .where(eq(users.id, userId));
 
@@ -151,5 +164,50 @@ export const me = async (req: Request, res: Response) => {
     return res
       .status(500)
       .json({ error: "Failed to fetch user" } as ErrorResponse);
+  }
+};
+
+export const verifyEmail = async (req: Request, res: Response) => {
+  try {
+    const token = req.query.token;
+    const resultPageBase = `${config.appBaseUrl}/email-verified`;
+
+    if (typeof token !== 'string' || token.trim() === '') {
+      return res.redirect(`${resultPageBase}?status=error&message=${encodeURIComponent('Verification token is required')}`);
+    }
+
+    const userId = await consumeEmailVerificationToken(token.trim());
+    if (!userId) {
+      return res.redirect(`${resultPageBase}?status=error&message=${encodeURIComponent('Invalid or expired verification link')}`);
+    }
+
+    return res.redirect(`${resultPageBase}?status=success`);
+  } catch (error) {
+    console.error('Error verifying email:', error);
+    return res.redirect(`${config.appBaseUrl}/email-verified?status=error&message=${encodeURIComponent('Verification failed. Please request a new email.')}`);
+  }
+};
+
+export const resendVerificationEmail = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body as { email?: string };
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email is required' } as ErrorResponse);
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+
+    if (!user || user.emailVerified) {
+      return res.status(200).json({ message: 'If this account exists, a verification email has been sent.' });
+    }
+
+    const rawToken = await createEmailVerificationToken(user.id);
+    const verifyUrl = `${config.appBaseUrl}/api/auth/verify-email?token=${encodeURIComponent(rawToken)}`;
+    await sendVerificationEmail(user.email, verifyUrl);
+
+    return res.status(200).json({ message: 'Verification email sent.' });
+  } catch (error) {
+    console.error('Error resending verification email:', error);
+    return res.status(500).json({ error: 'Failed to resend verification email' } as ErrorResponse);
   }
 };

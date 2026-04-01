@@ -162,17 +162,16 @@ export type NewTranslationLog = InferInsertModel<typeof translation_log>;
 export type TemplateGenerationLog = InferSelectModel<
   typeof template_generation_log
 >;
-export type NewTemplateGenerationLog = InferInsertModel<
-  typeof template_generation_log
->;
 
 export const template_validations = pgTable("template_validations", {
   id: serial("id").primaryKey(),
   templateId: integer("template_id")
     .notNull()
     .references(() => templates.id, { onDelete: "cascade" }),
-  generationLogId: integer("generation_log_id")
-    .references(() => template_generation_log.id, { onDelete: "set null" }),
+  generationLogId: integer("generation_log_id").references(
+    () => template_generation_log.id,
+    { onDelete: "set null" },
+  ),
   isValid: boolean("is_valid").notNull(),
   issues: jsonb("issues").$type<string[]>().default([]).notNull(),
   model: varchar("model", { length: 255 }),
@@ -198,6 +197,23 @@ export const translation_validations = pgTable("translation_validations", {
 });
 
 export type TemplateValidation = InferSelectModel<typeof template_validations>;
-export type NewTemplateValidation = InferInsertModel<typeof template_validations>;
-export type TranslationValidation = InferSelectModel<typeof translation_validations>;
-export type NewTranslationValidation = InferInsertModel<typeof translation_validations>;
+export type NewTemplateValidation = InferInsertModel<
+  typeof template_validations
+>;
+export type TranslationValidation = InferSelectModel<
+  typeof translation_validations
+>;
+export type NewTranslationValidation = InferInsertModel<
+  typeof translation_validations
+>;
+export type NewTemplateGenerationLog = InferInsertModel<
+  typeof template_generation_log
+>;
+export type EmailVerificationToken = InferSelectModel<
+  typeof email_verification_tokens
+>;
+export type NewEmailVerificationToken = InferInsertModel<
+  typeof email_verification_tokens
+>;
+export type NewUser = InferInsertModel<typeof users>;
+export type NewApiKey = InferInsertModel<typeof api_keys>;

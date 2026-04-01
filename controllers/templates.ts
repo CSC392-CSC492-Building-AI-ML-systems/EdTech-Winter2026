@@ -7,6 +7,7 @@ import {
   updateTemplate,
   deactivateTemplate,
 } from "../services/templates.js";
+import { normalizeInputs } from "../services/openai.js";
 import { logTemplateGeneration } from "../services/template_generation_log.js";
 import { validateInBackground } from "../services/openai.js";
 import type {
@@ -41,18 +42,23 @@ export const generate = async (
     }
 
     const userId = req.user?.id ?? req.apiKey?.user_id;
+
+    const normalized = await normalizeInputs(subject, gradeLevel);
+    const normalizedSubject = normalized.subject;
+    const normalizedGradeLevel = normalized.gradeLevel;
+
     const result = await generateTemplate(
-      { subject, topic, gradeLevel },
+      { subject: normalizedSubject, topic, gradeLevel: normalizedGradeLevel },
       userId,
     );
     const latencyMs = Date.now() - startedAt;
 
     logTemplateGeneration({
       templateId: result.response.id,
-      ...(req.apiKey ? { userId: req.apiKey.user_id } : {}),
-      subject,
+      ...(userId ? { userId } : {}),
+      subject: normalizedSubject,
       topic,
-      gradeLevel,
+      gradeLevel: normalizedGradeLevel,
       model: DEFAULT_TEMPLATE_MODEL,
       success: true,
       tokenCount: result.usage?.totalTokens ?? undefined,

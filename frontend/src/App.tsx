@@ -18,6 +18,7 @@ import { TranslationLog } from './pages/TranslationLog';
 import { TemplateGenerationLog } from './pages/TemplateGenerationLog';
 import { LanguageManager } from './pages/LanguageManager';
 import { cn } from './lib/utils';
+import { EmailVerificationResult } from './pages/EmailVerificationResult';
 
 interface AppUser {
   id: number;
@@ -150,6 +151,7 @@ export function App() {
     setUser(userData);
   };
 
+
   const handleLogout = async () => {
     try { await api.post('/api/auth/logout'); } catch {}
     localStorage.removeItem('api_key');
@@ -179,6 +181,7 @@ export function App() {
           )
         }
       />
+      <Route path="/email-verified" element={<EmailVerificationResult />} />
 
       <Route
         element={

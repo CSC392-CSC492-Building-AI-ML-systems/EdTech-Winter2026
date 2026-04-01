@@ -25,6 +25,13 @@ interface Config {
     validation: string;
     generation: string;
   };
+  appBaseUrl: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPass: string;
+  mailFrom: string;
 }
 
 const config: Config = {
@@ -40,6 +47,13 @@ const config: Config = {
     validation: "gpt-5-nano",
     generation: "gpt-5-nano",
   },
+  appBaseUrl: process.env.APP_BASE_URL || "http://localhost:3000",
+  smtpHost: process.env.SMTP_HOST || "",
+  smtpPort: Number(process.env.SMTP_PORT) || 587,
+  smtpSecure: String(process.env.SMTP_SECURE || "false") === "true",
+  smtpUser: process.env.SMTP_USER || "",
+  smtpPass: process.env.SMTP_PASS || "",
+  mailFrom: process.env.MAIL_FROM || process.env.SMTP_USER || "",
 };
 
 export default config;

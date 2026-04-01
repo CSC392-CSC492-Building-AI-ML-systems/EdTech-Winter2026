@@ -16,9 +16,7 @@ import type {
   TranslationStats,
 } from "../types/common.js";
 import type { TranslationLog } from "../db/schema.js";
-
-// TODO: Replace with actual model pricing for command-a-translate-08-2025
-const TRANSLATION_COST_PER_TOKEN = 0.000001;
+import { calculateCost } from "../utils/cost.js";
 
 async function resolveLanguageName(targetLanguage: string): Promise<string> {
   const trimmed = targetLanguage.trim();
@@ -39,20 +37,14 @@ async function resolveLanguageName(targetLanguage: string): Promise<string> {
   return trimmed;
 }
 
-function calculateCost(
-  inputTokenCount: number | undefined,
-  outputTokenCount: number | undefined,
-): number | null {
-  const totalTokens = (inputTokenCount ?? 0) + (outputTokenCount ?? 0);
-  if (totalTokens === 0) return null;
-  return totalTokens * TRANSLATION_COST_PER_TOKEN;
-}
+
 
 export async function logTranslation(
   params: LogTranslationParams,
 ): Promise<number | null> {
   const resolvedLanguage = await resolveLanguageName(params.targetLanguage);
   const costUsd = calculateCost(
+    params.model,
     params.inputTokenCount,
     params.outputTokenCount,
   );
@@ -223,18 +215,104 @@ async function fetchWorksheetStats() {
   const generatedToday = todayRow?.total ?? 0;
 
   const bySubject = await db
-    .select({ subject: templates.subject, count: count() })
+    .select({
+      subject: sql<string>`MAX(${templates.subject})`,
+      count: count(),
+    })
     .from(templates)
-    .groupBy(templates.subject)
+    .groupBy(sql`LOWER(${templates.subject})`)
     .orderBy(sql`count(*) desc`);
 
   const byGradeLevel = await db
-    .select({ gradeLevel: templates.gradeLevel, count: count() })
+    .select({
+      gradeLevel: sql<string>`MAX(${templates.gradeLevel})`,
+      count: count(),
+    })
     .from(templates)
-    .groupBy(templates.gradeLevel)
+    .groupBy(sql`LOWER(${templates.gradeLevel})`)
     .orderBy(sql`count(*) desc`);
 
   return { totalGenerated, generatedToday, bySubject, byGradeLevel };
+}
+
+async function fetchTemplatesByDay() {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+  return db
+    .select({
+      date: sql<string>`TO_CHAR(${templates.createdAt}, 'YYYY-MM-DD')`,
+      count: count(),
+    })
+    .from(templates)
+    .where(gte(templates.createdAt, thirtyDaysAgo))
+    .groupBy(sql`TO_CHAR(${templates.createdAt}, 'YYYY-MM-DD')`)
+    .orderBy(sql`TO_CHAR(${templates.createdAt}, 'YYYY-MM-DD')`);
+}
+
+async function fetchTopSubjectTopicPairs() {
+  return db
+    .select({
+      subject: sql<string>`MAX(${templates.subject})`,
+      topic: sql<string>`MAX(${templates.topic})`,
+      count: count(),
+    })
+    .from(templates)
+    .groupBy(sql`LOWER(${templates.subject})`, sql`LOWER(${templates.topic})`)
+    .orderBy(sql`count(*) desc`)
+    .limit(10);
+}
+
+async function fetchTemplatesPerUser() {
+  const rows = await db
+    .select({
+      userId: templates.createdByUserId,
+      count: count(),
+    })
+    .from(templates)
+    .where(isNotNull(templates.createdByUserId))
+    .groupBy(templates.createdByUserId)
+    .orderBy(sql`count(*) desc`)
+    .limit(10);
+
+  const [avgRow] = await db
+    .select({
+      avg: avg(sql<number>`sub.cnt`),
+    })
+    .from(
+      sql`(SELECT COUNT(*) as cnt FROM templates WHERE created_by_user_id IS NOT NULL GROUP BY created_by_user_id) as sub`,
+    );
+
+  return {
+    topCreators: rows.map((r) => ({ userId: r.userId!, count: r.count })),
+    averagePerUser: parseAvg(avgRow?.avg as string | null),
+  };
+}
+
+async function fetchGradeLevelBySubject() {
+  const rows = await db
+    .select({
+      subject: sql<string>`MAX(${templates.subject})`,
+      gradeLevel: sql<string>`MAX(${templates.gradeLevel})`,
+      count: count(),
+    })
+    .from(templates)
+    .groupBy(
+      sql`LOWER(${templates.subject})`,
+      sql`LOWER(${templates.gradeLevel})`,
+    )
+    .orderBy(sql`LOWER(${templates.subject})`, sql`count(*) desc`);
+
+  const grouped: Record<string, { gradeLevel: string; count: number }[]> = {};
+  for (const r of rows) {
+    if (!grouped[r.subject]) grouped[r.subject] = [];
+    grouped[r.subject]!.push({ gradeLevel: r.gradeLevel, count: r.count });
+  }
+  return Object.entries(grouped).map(([subject, grades]) => ({
+    subject,
+    grades,
+  }));
 }
 
 export async function getTranslationStatsFromDb(): Promise<TranslationStats> {
@@ -250,6 +328,10 @@ export async function getTranslationStatsFromDb(): Promise<TranslationStats> {
     topUsers,
     worksheetStats,
     costStats,
+    templatesByDay,
+    topSubjectTopicPairs,
+    templatesPerUser,
+    gradeLevelBySubject,
   ] = await Promise.all([
     fetchTotalCount(),
     fetchTodayCount(),
@@ -262,6 +344,10 @@ export async function getTranslationStatsFromDb(): Promise<TranslationStats> {
     fetchTopUsers(),
     fetchWorksheetStats(),
     fetchCostStats(),
+    fetchTemplatesByDay(),
+    fetchTopSubjectTopicPairs(),
+    fetchTemplatesPerUser(),
+    fetchGradeLevelBySubject(),
   ]);
 
   return {
@@ -278,6 +364,10 @@ export async function getTranslationStatsFromDb(): Promise<TranslationStats> {
     cacheHitRate: null,
     worksheetStats,
     ...costStats,
+    templatesByDay,
+    topSubjectTopicPairs,
+    templatesPerUser,
+    gradeLevelBySubject,
   };
 }
 

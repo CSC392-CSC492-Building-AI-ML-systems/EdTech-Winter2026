@@ -11,11 +11,14 @@ export interface AuthLoginRequest {
 export interface AuthUser {
   id: number;
   email: string;
+  emailVerified?: boolean;
   createdAt?: Date;
 }
 
 export interface AuthResponse {
   user: AuthUser;
+  message?: string;
+  verificationRequired?: boolean;
 }
 
 export interface MeResponse {
