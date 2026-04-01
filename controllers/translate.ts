@@ -6,6 +6,10 @@ import {
 } from "../services/translation_log.js";
 
 const DEFAULT_MODEL = "command-a-translate-08-2025";
+import {
+  archiveUploadedPdf,
+  getRequestUserId,
+} from "../services/pdf_upload.js";
 import { extractTextFromPdf, deleteFile } from "../services/pdf.js";
 import { computeFileHash, computeTextHash, uploadToBucket } from "../services/bucket.js";
 import { findUploadedByHash, recordPdfUpload } from "../services/pdf_uploads.js";
@@ -41,6 +45,16 @@ export const batchTranslate = async (req: Request, res: Response) => {
         .json({ error: "gradeLevel must be a string if provided" });
       return;
     }
+
+    await Promise.all(
+      files.map((file) =>
+        archiveUploadedPdf({
+          file,
+          flow: "batch",
+          userId: getRequestUserId(req),
+        }),
+      ),
+    );
 
     const start = Date.now();
     const items: { id: string; text: string; sourceTextHash: string; sourceDocumentId?: number | undefined }[] = [];
@@ -206,6 +220,16 @@ export const batchTranslateStream = async (req: Request, res: Response) => {
       sendEvent("error", { error: "gradeLevel must be a string if provided" });
       return res.end();
     }
+
+    await Promise.all(
+      files.map((file) =>
+        archiveUploadedPdf({
+          file,
+          flow: "batch_stream",
+          userId: getRequestUserId(req),
+        }),
+      ),
+    );
 
     sendEvent("status", { total: files.length });
 

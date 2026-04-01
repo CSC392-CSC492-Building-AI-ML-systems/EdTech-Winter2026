@@ -7,11 +7,14 @@ import {
   type TranslatedBlock,
 } from "../services/pdf.js";
 import { translateContent } from "../services/cohere.js";
-import { extractTextFromPdf } from "../services/pdf.js";
 import { translateContentStream } from "../services/cohere.js";
 import { validateTranslation } from "../services/validate.js";
 import { logTranslation } from "../services/translation_log.js";
 import { logTranslationValidation } from "../services/translation_validation_log.js";
+import {
+  archiveUploadedPdf,
+  getRequestUserId,
+} from "../services/pdf_upload.js";
 import { computeFileHash, computeTextHash, uploadToBucket } from "../services/bucket.js";
 import { findUploadedByHash, recordPdfUpload } from "../services/pdf_uploads.js";
 import {
@@ -87,6 +90,12 @@ export const uploadPdfFile = async (req: Request, res: Response) => {
     if (!req.file || !filePath) {
       return res.status(400).json({ error: "No PDF file uploaded" });
     }
+
+    await archiveUploadedPdf({
+      file: req.file,
+      flow: "pdf",
+      userId: getRequestUserId(req),
+    });
 
     const targetLanguage = (req.body.language as string) || "French";
 
@@ -248,6 +257,12 @@ export const uploadPdfFileStream = async (req: Request, res: Response) => {
       sendEvent("error", { error: "No PDF file uploaded" });
       return res.end();
     }
+
+    await archiveUploadedPdf({
+      file: req.file,
+      flow: "pdf_stream",
+      userId: getRequestUserId(req),
+    });
 
     const targetLanguage = (req.body.language as string) || "French";
 
