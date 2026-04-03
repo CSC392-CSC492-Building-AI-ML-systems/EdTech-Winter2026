@@ -12,6 +12,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+export const userRoles = pgEnum("user_role", ["user", "admin"]);
 export const scopes = pgEnum("scopes", ["read", "translate", "write"]);
 export const pdfUploadStatuses = pgEnum("pdf_upload_status", [
   "uploaded",
@@ -23,6 +24,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   password: varchar("password", { length: 255 }).notNull(),
+  role: userRoles("role").notNull().default("user"),
   emailVerified: boolean("email_verified").notNull().default(false),
   emailVerifiedAt: timestamp("email_verified_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

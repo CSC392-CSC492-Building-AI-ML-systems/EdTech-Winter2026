@@ -20,6 +20,7 @@ import {
   LogOut,
   ScrollText,
   Settings,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -27,6 +28,7 @@ import { useState } from "react";
 
 interface AppSidebarProps {
   userEmail: string;
+  userRole: 'user' | 'admin';
   apiKey: string;
   onLogout: () => void;
   isBusy?: boolean;
@@ -76,7 +78,6 @@ const NAV_ITEMS = [
     items: [
       { to: "/logs", label: "Translation Logs", icon: ScrollText },
       { to: "/template-logs", label: "Template Logs", icon: ScrollText },
-      { to: "/stats", label: "Stats", icon: BarChart3 },
     ],
   },
   {
@@ -87,9 +88,22 @@ const NAV_ITEMS = [
   },
 ];
 
-export function AppSidebar({ userEmail, apiKey, onLogout }: AppSidebarProps) {
+const ADMIN_NAV_ITEMS = [
+  {
+    section: "admin",
+    items: [
+      { to: "/admin/stats", label: "Platform Stats", icon: BarChart3 },
+    ],
+  },
+];
+
+export function AppSidebar({ userEmail, userRole, apiKey, onLogout }: AppSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const location = useLocation();
+
+  const navItems = userRole === 'admin'
+    ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS]
+    : NAV_ITEMS;
 
   const initials = userEmail
     .split("@")[0]
@@ -134,9 +148,15 @@ export function AppSidebar({ userEmail, apiKey, onLogout }: AppSidebarProps) {
               <div className="flex grow flex-col">
                 <ScrollArea className="h-16 grow p-2">
                   <div className="flex w-full flex-col gap-0.5">
-                    {NAV_ITEMS.map((section, sIdx) => (
+                    {navItems.map((section, sIdx) => (
                       <div key={section.section}>
                         {sIdx > 0 && <Separator className="my-2 w-full" />}
+                        {section.section === 'admin' && !isCollapsed && (
+                          <div className="flex items-center gap-1.5 px-2 py-1">
+                            <ShieldCheck className="size-3 text-zinc-300" />
+                            <span className="text-[10px] font-medium text-zinc-300 uppercase tracking-wider">Admin</span>
+                          </div>
+                        )}
                         {section.items.map((item) => {
                           const isActive = location.pathname === item.to;
                           return (

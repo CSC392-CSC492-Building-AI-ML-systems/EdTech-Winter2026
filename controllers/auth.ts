@@ -146,13 +146,13 @@ export const login = async (req: Request, res: Response) => {
       } as ErrorResponse);
     }
 
-    const token = jwt.sign({ id: user[0]!.id }, process.env.JWT_SECRET!, {
+    const token = jwt.sign({ id: user[0]!.id, role: user[0]!.role }, process.env.JWT_SECRET!, {
       expiresIn: "1h",
     });
 
     res.cookie("token", token, COOKIE_OPTIONS);
     const response: AuthResponse = {
-      user: { id: user[0]!.id, email: user[0]!.email },
+      user: { id: user[0]!.id, email: user[0]!.email, role: user[0]!.role },
     };
     return res.status(200).json(response);
   } catch (error) {
@@ -185,6 +185,7 @@ export const me = async (req: Request, res: Response) => {
       algorithms: ["HS256"],
     }) as {
       id: number;
+      role: "user" | "admin";
     };
     const userId = decodedToken.id;
 
@@ -194,7 +195,7 @@ export const me = async (req: Request, res: Response) => {
       userId,
     });
     const user = await db
-      .select({ id: users.id, email: users.email, createdAt: users.createdAt, emailVerified: users.emailVerified })
+      .select({ id: users.id, email: users.email, role: users.role, createdAt: users.createdAt, emailVerified: users.emailVerified })
       .from(users)
       .where(eq(users.id, userId));
     logInfo("auth_me_user_lookup_finished", {

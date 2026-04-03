@@ -10,6 +10,7 @@ import { db } from './db/index.js';
 
 import authRouter from './routes/auth.js';
 import apiKeysRouter from './routes/api_key.js';
+import adminRouter from './routes/admin.js';
 
 
 import { loadGlossaryCache } from './services/glossary.js';
@@ -111,10 +112,11 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use('/api', apiKeyMiddleware);
-
 app.use("/api/auth", authRouter);
 app.use("/api/keys", apiKeysRouter);
+app.use("/api/admin", adminRouter);
+
+app.use('/api', apiKeyMiddleware);
 app.use("/api/languages", languagesRouter);
 app.use("/api/translate", translateRouter);
 app.use("/api/templates", templatesRouter);
