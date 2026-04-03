@@ -175,8 +175,8 @@ You will also need accounts and API keys for the following external services:
   ([platform.openai.com](https://platform.openai.com))
 - **Resend** for email verification emails ([resend.com](https://resend.com))
 
-> **Optional:** A Railway Bucket (S3-compatible) for PDF archiving. The
-> application works without this — PDFs are processed and deleted locally
+> **Optional:** A Railway Bucket (S3-compatible) for PDF archiving. Note that the
+> application would work without this; PDFs are processed and deleted locally
 > if no bucket is configured.
 
 ---
@@ -1023,8 +1023,10 @@ specifically to help assess translation quality.
 ### Translation scoring
 
 The validate endpoint uses Cohere for back-translation and OpenAI for
-similarity scoring. However, note that LLM-based scoring is inherently approximate 
-and should be treated as a guide rather than a definitive quality measure.
+similarity scoring. Different models are used for back-translation and similarity
+scoring to limit bias. However, it should be noted that LLM-based
+scoring is inherently approximate and should be treated as a guide rather
+than a definitive quality measure.
 
 ### Frontend
 
