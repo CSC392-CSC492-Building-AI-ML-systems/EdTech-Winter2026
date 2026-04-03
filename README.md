@@ -27,7 +27,7 @@ The demo is deployed and live — no installation required:
 
 **https://edtech-winter2026-production.up.railway.app/**
 
-> **Note for TAs:** A pre-made admin account has been set up for you — credentials are provided separately. You are still welcome to create your own account by following the steps below.
+> **Note for TAs:** A pre-made admin account has been set up for you with email: admin@metytech.online and password: admin . You are still welcome to create your own account by following the steps below.
 
 ---
 
